@@ -90,6 +90,9 @@
 		D07DB4FE1B026FC1004733DE /* no_sympathies.svg in Resources */ = {isa = PBXBuildFile; fileRef = D07DB4F31B026FC1004733DE /* no_sympathies.svg */; };
 		D07DB4FF1B026FC1004733DE /* share.svg in Resources */ = {isa = PBXBuildFile; fileRef = D07DB4F41B026FC1004733DE /* share.svg */; };
 		D07DB5001B026FC1004733DE /* support.svg in Resources */ = {isa = PBXBuildFile; fileRef = D07DB4F51B026FC1004733DE /* support.svg */; };
+		D0DCC4D11B0281F700586BF3 /* pxSVGObject.m in Sources */ = {isa = PBXBuildFile; fileRef = D0DCC4D01B0281F700586BF3 /* pxSVGObject.m */; };
+		D0DCC4D41B02827E00586BF3 /* pxSVGGroup.m in Sources */ = {isa = PBXBuildFile; fileRef = D0DCC4D31B02827E00586BF3 /* pxSVGGroup.m */; };
+		D0DCC4D71B0284B200586BF3 /* pxSVGPath.m in Sources */ = {isa = PBXBuildFile; fileRef = D0DCC4D61B0284B200586BF3 /* pxSVGPath.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -208,6 +211,12 @@
 		D07DB4F31B026FC1004733DE /* no_sympathies.svg */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = no_sympathies.svg; sourceTree = "<group>"; };
 		D07DB4F41B026FC1004733DE /* share.svg */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = share.svg; sourceTree = "<group>"; };
 		D07DB4F51B026FC1004733DE /* support.svg */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = support.svg; sourceTree = "<group>"; };
+		D0DCC4CF1B0281F700586BF3 /* pxSVGObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pxSVGObject.h; sourceTree = "<group>"; };
+		D0DCC4D01B0281F700586BF3 /* pxSVGObject.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = pxSVGObject.m; sourceTree = "<group>"; };
+		D0DCC4D21B02827E00586BF3 /* pxSVGGroup.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pxSVGGroup.h; sourceTree = "<group>"; };
+		D0DCC4D31B02827E00586BF3 /* pxSVGGroup.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = pxSVGGroup.m; sourceTree = "<group>"; };
+		D0DCC4D51B0284B200586BF3 /* pxSVGPath.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pxSVGPath.h; sourceTree = "<group>"; };
+		D0DCC4D61B0284B200586BF3 /* pxSVGPath.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = pxSVGPath.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -342,6 +351,7 @@
 		D07DB4BA1B024A45004733DE /* pxSVG */ = {
 			isa = PBXGroup;
 			children = (
+				D0DCC4CE1B0281DA00586BF3 /* SVG */,
 				D07DB4DC1B025350004733DE /* Parsers */,
 				D07DB4D31B024A91004733DE /* Views */,
 				D07DB4BB1B024A45004733DE /* pxSVG.h */,
@@ -371,6 +381,19 @@
 				D07DB4DE1B025366004733DE /* pxSVGImage.m */,
 			);
 			name = Parsers;
+			sourceTree = "<group>";
+		};
+		D0DCC4CE1B0281DA00586BF3 /* SVG */ = {
+			isa = PBXGroup;
+			children = (
+				D0DCC4CF1B0281F700586BF3 /* pxSVGObject.h */,
+				D0DCC4D01B0281F700586BF3 /* pxSVGObject.m */,
+				D0DCC4D21B02827E00586BF3 /* pxSVGGroup.h */,
+				D0DCC4D31B02827E00586BF3 /* pxSVGGroup.m */,
+				D0DCC4D51B0284B200586BF3 /* pxSVGPath.h */,
+				D0DCC4D61B0284B200586BF3 /* pxSVGPath.m */,
+			);
+			name = SVG;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -546,6 +569,9 @@
 				D07DB4D61B024AAA004733DE /* pxSVGLayer.m in Sources */,
 				D07DB4EA1B026BF8004733DE /* pxSVGRenderPath.m in Sources */,
 				D07DB4E41B026959004733DE /* pxXMLNode.m in Sources */,
+				D0DCC4D71B0284B200586BF3 /* pxSVGPath.m in Sources */,
+				D0DCC4D11B0281F700586BF3 /* pxSVGObject.m in Sources */,
+				D0DCC4D41B02827E00586BF3 /* pxSVGGroup.m in Sources */,
 				D07DB4D91B024AC2004733DE /* pxSVGView.m in Sources */,
 				D07DB4DF1B025366004733DE /* pxSVGImage.m in Sources */,
 			);
@@ -707,6 +733,7 @@
 				D07DB4381B024475004733DE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		D07DB4CA1B024A45004733DE /* Build configuration list for PBXNativeTarget "pxSVG" */ = {
 			isa = XCConfigurationList;
@@ -715,6 +742,7 @@
 				D07DB4CC1B024A45004733DE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

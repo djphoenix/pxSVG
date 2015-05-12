@@ -7,10 +7,12 @@
 //
 
 #import "pxSVGRenderPath.h"
+#import "pxSVGGroup.h"
+#import "pxSVGPath.h"
 
 @interface pxSVGRenderPath ()
 @property NSDictionary *defs;
-//@property pxSVGGroup *root;
+@property pxSVGObject *root;
 @property CGRect bounds;
 @end
 
@@ -52,6 +54,39 @@
     } else {
         self.bounds = CGRectNull;
     }
+    self.root = [self parseObject:xmlNode];
     return self;
+}
+- (pxSVGObject*)parseObject:(pxXMLNode*)node
+{
+    if ([node.tagName rangeOfString:@":"].location != NSNotFound) return nil;
+    if ([node.tagName isEqualToString:@"metadata"]) return nil;
+    Class objClass = pxSVGObject.class;
+    if ([node.tagName isEqualToString:@"g"])
+        objClass = pxSVGGroup.class;
+    else if ([node.tagName isEqualToString:@"svg"])
+        objClass = pxSVGGroup.class;
+    else if ([node.tagName isEqualToString:@"path"])
+        objClass = pxSVGPath.class;
+    else if ([node.tagName isEqualToString:@"polygon"])
+        objClass = pxSVGPath.class;
+    else if ([node.tagName isEqualToString:@"ellipse"])
+        objClass = pxSVGPath.class;
+    else if ([node.tagName isEqualToString:@"circle"])
+        objClass = pxSVGPath.class;
+    else if ([node.tagName isEqualToString:@"rect"])
+        objClass = pxSVGPath.class;
+    else NSLog(@"Unknown tag: %@",node.tagName);
+    pxSVGObject *obj = [objClass new];
+    [obj loadAttributes:node.attributes];
+    if (node.childNodes.count) {
+        NSMutableArray *subnodes = [NSMutableArray new];
+        for (pxXMLNode *n in node.childNodes) {
+            pxSVGObject *o = [self parseObject:n];
+            if (o) [subnodes addObject:o];
+        }
+        [obj setSubnodes:[NSArray arrayWithArray:subnodes]];
+    }
+    return obj;
 }
 @end
