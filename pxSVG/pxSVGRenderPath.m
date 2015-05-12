@@ -24,6 +24,7 @@
 - (instancetype)initWithXML:(pxXMLNode *)xmlNode
 {
     self = [super init];
+    self.root = [self parseObject:xmlNode];
     if ([xmlNode.attributes objectForKey:@"width"] &&
         [xmlNode.attributes objectForKey:@"height"]) {
         CGPoint o = CGPointZero;
@@ -52,10 +53,24 @@
             }
         };
     } else {
-        self.bounds = CGRectNull;
+        self.bounds = [self objBounds:self.root];
     }
-    self.root = [self parseObject:xmlNode];
     return self;
+}
+- (CGRect) objBounds:(pxSVGObject*)obj
+{
+    if ([obj respondsToSelector:@selector(d)]) {
+        UIBezierPath *path = [(id)obj d];
+        if (path) return CGRectApplyAffineTransform(path.bounds, CATransform3DGetAffineTransform(obj.transform));
+    }
+    if ([obj respondsToSelector:@selector(subnodes)]) {
+        CGRect f = CGRectNull;
+        for (pxSVGObject *o in [(id)obj subnodes]) {
+            f = CGRectUnion(f, [self objBounds:o]);
+        }
+        return CGRectApplyAffineTransform(f, CATransform3DGetAffineTransform(obj.transform));
+    }
+    return CGRectNull;
 }
 - (pxSVGObject*)parseObject:(pxXMLNode*)node
 {
