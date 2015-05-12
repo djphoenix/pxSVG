@@ -6,9 +6,10 @@
 //  Copyright (c) 2015 PhoeniX. All rights reserved.
 //
 
-#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 
 @interface pxSVGImage : NSObject
 + (instancetype) svgImageWithXML:(NSString*)data;
 - (instancetype) initWithXML:(NSString*)data;
+@property (nonatomic,readonly) CGRect bounds;
 @end

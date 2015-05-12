@@ -88,7 +88,7 @@
         NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
             if ([op isCancelled]) return;
             if (!img) return [weakself loadError:[NSError errorWithDomain:@"pxSVGParser.parseError" code:0 userInfo:nil]];
-            NSLog(@"%@",img);
+            NSLog(@"%@ %@",img,[NSValue valueWithCGRect:img.bounds]);
         }];
         [[NSOperationQueue mainQueue] addOperations:@[sync] waitUntilFinished:YES];
     }];

@@ -8,9 +8,10 @@
 
 #import "pxSVGImage.h"
 #import "pxXMLNode.h"
+#import "pxSVGRenderPath.h"
 
 @interface pxSVGImage ()
-@property pxXMLNode *xmlTree;
+@property pxSVGRenderPath *renderPath;
 @end
 
 @implementation pxSVGImage
@@ -20,11 +21,20 @@
 }
 - (instancetype)initWithXML:(NSString *)xml
 {
+    pxXMLNode *xmlTree =
+    [[pxXMLNode parseTree:[[NSScanner alloc] initWithString:xml]]
+     filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"tagName=%@",@"svg"]]
+    .firstObject;
+    if (!xmlTree) return nil;
+    pxSVGRenderPath *renderPath = [pxSVGRenderPath pathWithXML:xmlTree];
+    if (!renderPath) return nil;
     self = [self init];
-    NSScanner *scan = [[NSScanner alloc] initWithString:xml];
-    self.xmlTree = [[pxXMLNode parseTree:scan] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"tagName=%@",@"svg"]].firstObject;
-    if (!self.xmlTree) return nil;
-    
+    self.renderPath = renderPath;
     return self;
+}
+
+- (CGRect)bounds
+{
+    return self.renderPath.bounds;
 }
 @end
