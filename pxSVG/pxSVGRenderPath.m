@@ -127,8 +127,8 @@
     }
     l.frame = self.bounds;
     CATransform3D tr = node.transform;
-    tr = CATransform3DConcat(CATransform3DMakeTranslation(-self.bounds.size.width/2,  self.bounds.size.height/2, 0), tr);
-    tr = CATransform3DConcat(tr, CATransform3DMakeTranslation( self.bounds.size.width/2, -self.bounds.size.height/2, 0));
+    tr = CATransform3DConcat(CATransform3DMakeTranslation( self.bounds.size.width/2,  self.bounds.size.height/2, 0), tr);
+    tr = CATransform3DConcat(tr, CATransform3DMakeTranslation(-self.bounds.size.width/2, -self.bounds.size.height/2, 0));
     l.transform = tr;
     l.opacity = node.opacity;
     if ([node respondsToSelector:@selector(subnodes)]) {
