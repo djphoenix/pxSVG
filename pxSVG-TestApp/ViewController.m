@@ -30,7 +30,6 @@
 
 - (void)svgViewDidLoadImage:(pxSVGView *)svgView
 {
-    NSLog(@"load %@",self.SVGURL);
 }
 
 - (void)svgView:(pxSVGView *)svgLayer didFailedLoad:(NSError *)error
