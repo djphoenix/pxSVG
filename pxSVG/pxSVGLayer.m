@@ -58,6 +58,7 @@
         NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
             if ([op isCancelled]) return;
             if (!weakself) return;
+            weakself.loadOperation = nil;
             NSError *error = err;
             if (!error && [resp isKindOfClass:[NSHTTPURLResponse class]] && (((NSHTTPURLResponse*)resp).statusCode != 200))
                 error = [NSError errorWithDomain:@"pxSVGLoader.httpStatus" code:((NSHTTPURLResponse*)resp).statusCode userInfo:nil];
@@ -87,13 +88,23 @@
         if ([op isCancelled]) return;
         NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
             if ([op isCancelled]) return;
+            if (!weakself) return;
+            weakself.parseOperation = nil;
             if (!img) return [weakself loadError:[NSError errorWithDomain:@"pxSVGParser.parseError" code:0 userInfo:nil]];
-            NSLog(@"%@ %@",img,[NSValue valueWithCGRect:img.bounds]);
+            [weakself loadImage:img];
         }];
         [[NSOperationQueue mainQueue] addOperations:@[sync] waitUntilFinished:YES];
     }];
     op.threadPriority = 0.1f;
     [[self.class parseQueue] addOperation:self.parseOperation=op];
+}
+
+- (void)loadImage:(pxSVGImage*)image
+{
+    [self clean];
+    [self addSublayer:[image makeLayer]];
+    if ([self.svgDelegate respondsToSelector:@selector(svgLayerDidLoadImage:)])
+        [self.svgDelegate svgLayerDidLoadImage:self];
 }
 
 - (void)loadError:(NSError *)error
@@ -106,6 +117,16 @@
 {
     if (self.loadOperation) [self.loadOperation cancel];
     if (self.parseOperation) [self.parseOperation cancel];
+    while (self.sublayers.count) [self.sublayers.firstObject removeFromSuperlayer];
+}
+
+- (CGRect)contentRect
+{
+    CGRect f = CGRectNull;
+    for (CALayer *l in self.sublayers) {
+        f = CGRectUnion(f, l.frame);
+    }
+    return f;
 }
 
 @end

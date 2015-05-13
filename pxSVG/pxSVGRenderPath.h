@@ -13,4 +13,5 @@
 + (instancetype) pathWithXML:(pxXMLNode*)xmlNode;
 - (instancetype) initWithXML:(pxXMLNode*)xmlNode;
 @property (readonly) CGRect bounds;
+- (CALayer*)makeLayer;
 @end

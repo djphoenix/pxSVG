@@ -37,4 +37,8 @@
 {
     return self.renderPath.bounds;
 }
+- (CALayer *)makeLayer
+{
+    return [self.renderPath makeLayer];
+}
 @end

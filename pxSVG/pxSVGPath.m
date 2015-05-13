@@ -171,7 +171,7 @@
              [attributes objectForKey:@"ry"]) {
         CGRect r;
         r.size.width = [[attributes objectForKey:@"rx"] doubleValue];
-        r.size.height = [[attributes objectForKey:@"rx"] doubleValue];
+        r.size.height = [[attributes objectForKey:@"ry"] doubleValue];
         r.origin.x = [[attributes objectForKey:@"cx"] doubleValue] - r.size.width;
         r.origin.y = [[attributes objectForKey:@"cy"] doubleValue] - r.size.height;
         r.size.width *= 2; r.size.height *= 2;
@@ -195,7 +195,6 @@
         r.size.height = [[attributes objectForKey:@"height"] doubleValue];
         r.origin.x = [[attributes objectForKey:@"x"] doubleValue];
         r.origin.y = [[attributes objectForKey:@"y"] doubleValue];
-        r.size.width *= 2; r.size.height *= 2;
         self.d = [UIBezierPath bezierPathWithRect:r];
     } else NSLog(@"%@",attributes);
 }

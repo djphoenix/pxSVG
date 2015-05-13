@@ -24,7 +24,7 @@
 - (instancetype)initWithXML:(pxXMLNode *)xmlNode
 {
     self = [super init];
-    self.root = [self parseObject:xmlNode];
+    self.root = [self parseObject:xmlNode inheritAttributes:nil];
     if ([xmlNode.attributes objectForKey:@"width"] &&
         [xmlNode.attributes objectForKey:@"height"]) {
         CGPoint o = CGPointZero;
@@ -72,7 +72,7 @@
     }
     return CGRectNull;
 }
-- (pxSVGObject*)parseObject:(pxXMLNode*)node
+- (pxSVGObject*)parseObject:(pxXMLNode*)node inheritAttributes:(pxSVGObject*)inherit
 {
     if ([node.tagName rangeOfString:@":"].location != NSNotFound) return nil;
     if ([node.tagName isEqualToString:@"metadata"]) return nil;
@@ -94,14 +94,55 @@
     else NSLog(@"Unknown tag: %@",node.tagName);
     pxSVGObject *obj = [objClass new];
     [obj loadAttributes:node.attributes];
+    if (!obj.fillColor)
+        obj.fillColor = inherit.fillColor;
+    if (obj.strokeWidth == NAN)
+        obj.strokeWidth = inherit.strokeWidth;
+    if (!obj.strokeColor)
+        obj.strokeColor = inherit.strokeColor;
     if (node.childNodes.count) {
         NSMutableArray *subnodes = [NSMutableArray new];
         for (pxXMLNode *n in node.childNodes) {
-            pxSVGObject *o = [self parseObject:n];
-            if (o) [subnodes addObject:o];
+            pxSVGObject *o = [self parseObject:n inheritAttributes:obj];
+            if (o) {
+                [subnodes addObject:o];
+            }
         }
         [obj setSubnodes:[NSArray arrayWithArray:subnodes]];
     }
     return obj;
+}
+- (CALayer *)makeLayerWithNode:(pxSVGObject*)node withOffset:(CGPoint)off
+{
+    CGRect f = [self objBounds:node];
+    if (CGRectIsNull(f)) return nil;
+    CALayer *l;
+    if ([node respondsToSelector:@selector(d)]) {
+        CAShapeLayer *sl = [CAShapeLayer new];
+        CGAffineTransform t = CGAffineTransformMakeTranslation(-f.origin.x, -f.origin.y);
+        CGPathRef p = CGPathCreateCopyByTransformingPath([(id)node d].CGPath, &t);
+        sl.path = p;
+        CGPathRelease(p);
+        sl.fillColor = (node.fillColor?:[UIColor blackColor]).CGColor;
+        sl.strokeColor = node.strokeColor.CGColor;
+        sl.lineWidth = node.strokeWidth==NAN?0:node.strokeWidth;
+        l = sl;
+    } else {
+        l = [CALayer new];
+    }
+    l.frame = CGRectOffset(f, -off.x, -off.y);
+    l.transform = node.transform;
+    l.opacity = node.opacity;
+    if ([node respondsToSelector:@selector(subnodes)]) {
+        for (pxSVGObject *n in [(id)node subnodes]) {
+            CALayer *sl = [self makeLayerWithNode:n withOffset:(CGPoint){f.origin.x+off.x,f.origin.y+off.y}];
+            if (sl) [l addSublayer:sl];
+        }
+    }
+    return l;
+}
+- (CALayer *)makeLayer
+{
+    return [self makeLayerWithNode:self.root withOffset:CGPointZero];
 }
 @end

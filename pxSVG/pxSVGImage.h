@@ -12,4 +12,5 @@
 + (instancetype) svgImageWithXML:(NSString*)data;
 - (instancetype) initWithXML:(NSString*)data;
 @property (nonatomic,readonly) CGRect bounds;
+- (CALayer*)makeLayer;
 @end

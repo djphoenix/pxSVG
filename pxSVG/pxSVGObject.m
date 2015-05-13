@@ -61,7 +61,7 @@
 {
     if (!string) return nil;
     string = [string stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    if ([string isEqualToString:@"none"]) return nil;
+    if ([string isEqualToString:@"none"]) return [UIColor clearColor];
     if ([string isEqualToString:@"black"]) return [UIColor blackColor];
     if ([string isEqualToString:@"white"]) return [UIColor whiteColor];
     NSScanner *sc = [NSScanner scannerWithString:[string lowercaseString]];
@@ -98,9 +98,9 @@
     self.id = [attributes objectForKey:@"id"];
     self.fillColor = [self colorWithSVGColor:[attributes objectForKey:@"fill"]];
     self.strokeColor = [self colorWithSVGColor:[attributes objectForKey:@"stroke"]];
-    self.strokeWidth = [[attributes objectForKey:@"stroke-width"] doubleValue];
+    self.strokeWidth = [attributes objectForKey:@"stroke-width"]?[[attributes objectForKey:@"stroke-width"] doubleValue]:NAN;
     self.transform = [self.class transformFromString:[attributes objectForKey:@"transform"]];
-    self.opacity = [[attributes objectForKey:@"opacity"] doubleValue];
+    self.opacity = [attributes objectForKey:@"opacity"]?[[attributes objectForKey:@"opacity"] doubleValue]:1;
 }
 - (void)setSubnodes:(NSArray *)subnodes { }
 @end

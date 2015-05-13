@@ -20,4 +20,5 @@
 - (void) loadData:(NSData*)data;
 - (void) loadString:(NSString*)string;
 - (void) loadURL:(NSURL*)url;
+@property (nonatomic,readonly) CGRect contentRect;
 @end

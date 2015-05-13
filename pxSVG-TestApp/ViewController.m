@@ -23,21 +23,23 @@
     sv.svgDelegate = self;
     sv.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
     [self.contentView addSubview:_svgView=sv];
+    self.clipsToBounds = YES;
     return self;
 }
 
 - (void)svgViewDidLoadImage:(pxSVGView *)svgView
 {
-    NSLog(@"%@",self.SVGURL);
+    NSLog(@"load %@",self.SVGURL);
 }
 
 - (void)svgView:(pxSVGView *)svgLayer didFailedLoad:(NSError *)error
 {
-    NSLog(@"%@ %@",self.SVGURL,error);
+    NSLog(@"err %@ %@",self.SVGURL,error);
 }
 
 - (void)setSVGURL:(NSURL *)SVGURL
 {
+    _SVGURL = SVGURL;
     [self.svgView loadURL:SVGURL];
 }
 
