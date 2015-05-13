@@ -48,11 +48,11 @@
                 cmd = [NSString stringWithCharacters:&lastCmd length:1];
             } else {
                 NSLog(@"Unknown character: %@",[string substringWithRange:(NSRange){scanner.scanLocation,1}]);
+                break;
             }
-            break;
         }
         lastCmd = [cmd characterAtIndex:0];
-        switch ([cmd characterAtIndex:0]) {
+        switch (lastCmd) {
             case 'M':
                 [bp moveToPoint:p = [scanner scanCGPoint]];
                 break;
