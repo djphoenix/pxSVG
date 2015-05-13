@@ -11,7 +11,7 @@
 #import "pxSVGPath.h"
 
 @interface pxSVGRenderPath ()
-@property NSDictionary *defs;
+@property NSMutableDictionary *defs;
 @property pxSVGObject *root;
 @property CGRect bounds;
 @end
@@ -24,6 +24,7 @@
 - (instancetype)initWithXML:(pxXMLNode *)xmlNode
 {
     self = [super init];
+    self.defs = [NSMutableDictionary new];
     self.root = [self parseObject:xmlNode inheritAttributes:nil];
     if ([xmlNode.attributes objectForKey:@"viewBox"]) {
         NSArray *vb = [[xmlNode.attributes objectForKey:@"viewBox"] componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
@@ -76,10 +77,47 @@
 {
     if ([node.tagName rangeOfString:@":"].location != NSNotFound) return nil;
     if ([node.tagName isEqualToString:@"metadata"]) return nil;
+    if ([node.tagName isEqualToString:@"marker"]) return nil;
+    if ([node.tagName isEqualToString:@"filter"]) return nil;
+    if ([node.tagName isEqualToString:@"a"]) return nil;
+    if ([node.tagName isEqualToString:@"use"]) {
+        NSString *href = [node.attributes objectForKey:@"xlink:href"];
+        if (!href) href = [node.attributes objectForKey:@"href"];
+        if (!href) return nil;
+        href = [href substringFromIndex:1];
+        pxSVGObject *oobj = [self.defs objectForKey:href], *obj;
+        if (!oobj) return nil;
+        obj = [oobj.class new];
+        obj.fillColor = oobj.fillColor;
+        obj.strokeColor = oobj.strokeColor;
+        obj.strokeWidth = oobj.strokeWidth;
+        obj.opacity = oobj.opacity;
+        if ([oobj respondsToSelector:@selector(d)])
+            [(id)obj setD:[(id)oobj d]];
+        if ([oobj respondsToSelector:@selector(subnodes)])
+            [(id)obj setSubnodes:[(id)oobj subnodes]];
+        CATransform3D tr = oobj.transform;
+        if ([node.attributes objectForKey:@"x"]) tr = CATransform3DTranslate(tr, [[node.attributes objectForKey:@"x"] doubleValue], 0, 0);
+        if ([node.attributes objectForKey:@"y"]) tr = CATransform3DTranslate(tr, 0, [[node.attributes objectForKey:@"y"] doubleValue], 0);
+        if ([node.attributes objectForKey:@"width"]) {
+            CGFloat ow = [self objBounds:oobj].size.width, w = [[node.attributes objectForKey:@"width"] doubleValue];
+            tr = CATransform3DScale(tr, ow/w, 1, 1);
+        }
+        if ([node.attributes objectForKey:@"height"]) {
+            CGFloat oh = [self objBounds:oobj].size.width, h = [[node.attributes objectForKey:@"height"] doubleValue];
+            tr = CATransform3DScale(tr, 1, oh/h, 1);
+        }
+        if ([node.attributes objectForKey:@"transform"]) tr = CATransform3DConcat(tr, [pxSVGObject transformFromString:[node.attributes objectForKey:@"transform"]]);
+        obj.transform = tr;
+        obj.animations = oobj.animations;
+        return obj;
+    }
     Class objClass = pxSVGObject.class;
     if ([node.tagName isEqualToString:@"g"])
         objClass = pxSVGGroup.class;
     else if ([node.tagName isEqualToString:@"svg"])
+        objClass = pxSVGGroup.class;
+    else if ([node.tagName isEqualToString:@"defs"])
         objClass = pxSVGGroup.class;
     else if ([node.tagName isEqualToString:@"path"])
         objClass = pxSVGPath.class;
@@ -100,11 +138,12 @@
         obj.strokeWidth = inherit.strokeWidth;
     if (!obj.strokeColor)
         obj.strokeColor = inherit.strokeColor;
+    if (obj.id) [self.defs setObject:obj forKey:obj.id];
     if (node.childNodes.count) {
         NSMutableArray *subnodes = [NSMutableArray new];
         for (pxXMLNode *n in node.childNodes) {
             pxSVGObject *o = [self parseObject:n inheritAttributes:obj];
-            if (o) {
+            if (o && ![n.tagName isEqualToString:@"defs"]) {
                 [subnodes addObject:o];
             }
         }

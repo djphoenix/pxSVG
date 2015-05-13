@@ -54,7 +54,7 @@
     }
     return tr;
 }
-- (UIColor*) colorWithSVGColor:(NSString*)string
++ (UIColor*) colorWithSVGColor:(NSString*)string
 {
     if (!string) return nil;
     string = [string stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
@@ -103,8 +103,8 @@
         }
     }
     self.id = [ma objectForKey:@"id"];
-    self.fillColor = [self colorWithSVGColor:[ma objectForKey:@"fill"]];
-    self.strokeColor = [self colorWithSVGColor:[ma objectForKey:@"stroke"]];
+    self.fillColor = [self.class colorWithSVGColor:[ma objectForKey:@"fill"]];
+    self.strokeColor = [self.class colorWithSVGColor:[ma objectForKey:@"stroke"]];
     self.strokeWidth = [ma objectForKey:@"stroke-width"]?[[ma objectForKey:@"stroke-width"] doubleValue]:NAN;
     self.transform = [self.class transformFromString:[ma objectForKey:@"transform"]];
     self.opacity = [ma objectForKey:@"opacity"]?[[ma objectForKey:@"opacity"] doubleValue]:1;

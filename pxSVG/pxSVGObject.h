@@ -9,6 +9,8 @@
 #import <UIKit/UIKit.h>
 
 @interface pxSVGObject : NSObject
++ (CATransform3D) transformFromString:(NSString*)string;
++ (UIColor*) colorWithSVGColor:(NSString*)string;
 - (void) loadAttributes:(NSDictionary*)attributes;
 - (void) setSubnodes:(NSArray*)subnodes;
 @property NSString *id;
