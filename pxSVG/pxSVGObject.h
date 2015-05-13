@@ -16,8 +16,10 @@
 @property NSString *id;
 @property NSArray *animations;
 @property UIColor *fillColor;
+@property NSString *fillDef;
 @property UIColor *strokeColor;
 @property CGFloat strokeWidth;
 @property CGFloat opacity;
+@property CGFloat fillOpacity;
 @property CATransform3D transform;
 @end

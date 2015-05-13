@@ -103,11 +103,18 @@
         }
     }
     self.id = [ma objectForKey:@"id"];
-    self.fillColor = [self.class colorWithSVGColor:[ma objectForKey:@"fill"]];
+    if ([[ma objectForKey:@"fill"] hasPrefix:@"url("]) {
+        NSString *u = [[ma objectForKey:@"fill"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        u = [[u substringWithRange:NSMakeRange(3, u.length-4)] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\n\r\t ()#"]];
+        self.fillDef = u;
+    } else self.fillColor = [self.class colorWithSVGColor:[ma objectForKey:@"fill"]];
     self.strokeColor = [self.class colorWithSVGColor:[ma objectForKey:@"stroke"]];
     self.strokeWidth = [ma objectForKey:@"stroke-width"]?[[ma objectForKey:@"stroke-width"] doubleValue]:NAN;
     self.transform = [self.class transformFromString:[ma objectForKey:@"transform"]];
     self.opacity = [ma objectForKey:@"opacity"]?[[ma objectForKey:@"opacity"] doubleValue]:1;
+    CGFloat a = NAN;
+    if (self.fillColor) [self.fillColor getWhite:nil alpha:&a];
+    self.fillOpacity = [ma objectForKey:@"fill-opacity"]?[[ma objectForKey:@"fill-opacity"] doubleValue]:a;
 }
 - (void)setSubnodes:(NSArray *)subnodes { }
 @end
