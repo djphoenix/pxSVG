@@ -33,17 +33,17 @@
     [self.svgLayer setFrame:self.layer.bounds];
     CATransform3D tr = CATransform3DIdentity;
     CGRect c = self.svgLayer.contentRect;
+    CGFloat
+    scx = c.size.width/self.bounds.size.width,
+    scy = c.size.height/self.bounds.size.height,
+    sc;
     switch (self.contentMode) {
-        case UIViewContentModeScaleAspectFit: {
-            CGFloat
-            scx = c.size.width/self.bounds.size.width,
-            scy = c.size.height/self.bounds.size.height,
+        case UIViewContentModeScaleAspectFit:
             sc = MAX(scx,scy);
             tr = CATransform3DMakeScale(1/sc, 1/sc, 1);
             tr = CATransform3DTranslate(tr, -c.size.width/2, -c.size.height/2, 0);
             tr = CATransform3DTranslate(tr, self.bounds.size.width/2, self.bounds.size.height/2, 0);
             break;
-        }
         default: break;
     }
     [self.svgLayer setTransform:tr];
@@ -52,6 +52,7 @@
 - (void)svgLayerDidLoadImage:(pxSVGLayer *)svgLayer
 {
     [self setNeedsLayout];
+    [self layoutSublayersOfLayer:self.layer];
     [self setNeedsDisplay];
     if ([self.svgDelegate respondsToSelector:@selector(svgViewDidLoadImage:)])
         [self.svgDelegate svgViewDidLoadImage:self];

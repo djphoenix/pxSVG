@@ -89,4 +89,18 @@
     return cell;
 }
 
+- (CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout *)collectionViewLayout sizeForItemAtIndexPath:(NSIndexPath *)indexPath
+{
+    CGFloat w = collectionView.bounds.size.width;
+    CGFloat c = round(w/160);
+    CGFloat i = (w-c+1)/c;
+    return (CGSize){i,i};
+}
+
+- (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
+{
+    [super willRotateToInterfaceOrientation:toInterfaceOrientation duration:duration];
+    [self.collectionViewLayout invalidateLayout];
+}
+
 @end
