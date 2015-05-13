@@ -92,12 +92,22 @@
 }
 - (void)loadAttributes:(NSDictionary *)attributes
 {
-    self.id = [attributes objectForKey:@"id"];
-    self.fillColor = [self colorWithSVGColor:[attributes objectForKey:@"fill"]];
-    self.strokeColor = [self colorWithSVGColor:[attributes objectForKey:@"stroke"]];
-    self.strokeWidth = [attributes objectForKey:@"stroke-width"]?[[attributes objectForKey:@"stroke-width"] doubleValue]:NAN;
-    self.transform = [self.class transformFromString:[attributes objectForKey:@"transform"]];
-    self.opacity = [attributes objectForKey:@"opacity"]?[[attributes objectForKey:@"opacity"] doubleValue]:1;
+    NSMutableDictionary *ma = [attributes mutableCopy];
+    if ([attributes objectForKey:@"style"]) {
+        for (NSString *s in [[attributes objectForKey:@"style"] componentsSeparatedByString:@";"]) {
+            NSUInteger sep = [s rangeOfString:@":"].location;
+            if (sep == NSNotFound) continue;
+            NSString *k = [[s substringToIndex:sep] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            NSString *v = [[s substringFromIndex:sep+1] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            [ma setObject:v forKey:k];
+        }
+    }
+    self.id = [ma objectForKey:@"id"];
+    self.fillColor = [self colorWithSVGColor:[ma objectForKey:@"fill"]];
+    self.strokeColor = [self colorWithSVGColor:[ma objectForKey:@"stroke"]];
+    self.strokeWidth = [ma objectForKey:@"stroke-width"]?[[ma objectForKey:@"stroke-width"] doubleValue]:NAN;
+    self.transform = [self.class transformFromString:[ma objectForKey:@"transform"]];
+    self.opacity = [ma objectForKey:@"opacity"]?[[ma objectForKey:@"opacity"] doubleValue]:1;
 }
 - (void)setSubnodes:(NSArray *)subnodes { }
 @end
