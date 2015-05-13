@@ -23,7 +23,7 @@
     if (!lq) {
         lq = [NSOperationQueue new];
         lq.name = @"pxSVG Load queue";
-        [lq setMaxConcurrentOperationCount:1];
+        [lq setMaxConcurrentOperationCount:10];
     }
     return lq;
 }
@@ -34,7 +34,7 @@
     if (!pq) {
         pq = [NSOperationQueue new];
         pq.name = @"pxSVG Parser queue";
-        [pq setMaxConcurrentOperationCount:1];
+        [pq setMaxConcurrentOperationCount:10];
     }
     return pq;
 }
@@ -49,7 +49,7 @@
 {
     [self clean];
     __weak pxSVGLayer *weakself = self;
-    NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{
+    __block NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{
         NSURLResponse *resp;
         NSError *err;
         NSData *data;
@@ -84,7 +84,7 @@
 {
     [self clean];
     __weak pxSVGLayer *weakself = self;
-    NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{
+    __block NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{
         pxSVGImage *img = [pxSVGImage svgImageWithXML:string];
         if ([op isCancelled]) return;
         NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
