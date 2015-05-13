@@ -117,4 +117,8 @@
     self.fillOpacity = [ma objectForKey:@"fill-opacity"]?[[ma objectForKey:@"fill-opacity"] doubleValue]:a;
 }
 - (void)setSubnodes:(NSArray *)subnodes { }
+- (CGRect)bounds
+{
+    return CGRectNull;
+}
 @end

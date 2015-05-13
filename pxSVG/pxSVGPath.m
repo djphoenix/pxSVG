@@ -198,4 +198,9 @@
         self.d = [UIBezierPath bezierPathWithRect:r];
     } else NSLog(@"%@",attributes);
 }
+- (CGRect)bounds
+{
+    if (self.d) return CGRectApplyAffineTransform(self.d.bounds, CATransform3DGetAffineTransform(self.transform));
+    return CGRectNull;
+}
 @end

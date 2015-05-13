@@ -22,4 +22,5 @@
 @property CGFloat opacity;
 @property CGFloat fillOpacity;
 @property CATransform3D transform;
+@property (nonatomic,readonly) CGRect bounds;
 @end

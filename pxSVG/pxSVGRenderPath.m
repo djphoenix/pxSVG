@@ -20,10 +20,59 @@
 @implementation pxSVGGradient
 @end
 
+@interface pxSVGPattern : pxSVGGroup
+@end
+
+@implementation pxSVGPattern
+@end
+
 @interface pxSVGRenderPath ()
-@property NSMutableDictionary *defs;
+@property NSMutableDictionary *defCache;
+@property pxXMLNode *xml;
 @property pxSVGObject *root;
 @property CGRect bounds;
+@end
+
+@interface pxSVGPatternLayer : CALayer
+@property CALayer *patternLayer;
+@end
+
+@implementation pxSVGPatternLayer
+
++ (instancetype)layer
+{
+    return [self new];
+}
+
+- (instancetype)init
+{
+    self = [super init];
+    self.delegate = self;
+    [self setNeedsDisplayOnBoundsChange:YES];
+    return self;
+}
+
+- (BOOL)drawsAsynchronously
+{
+    return NO;
+}
+
+- (void)drawInContext:(CGContextRef)ctx
+{
+    CGRect r = CGContextGetClipBoundingBox(ctx);
+    CGContextTranslateCTM(ctx, -r.size.width/2-37.73, -r.size.height/2);
+    [self.patternLayer drawInContext:ctx];
+    {
+        CALayer *l = self.patternLayer;
+        UIGraphicsBeginImageContext([l frame].size);
+        CGContextRef ctx = UIGraphicsGetCurrentContext();
+        CGContextTranslateCTM(ctx, -l.frame.origin.x, -l.frame.origin.y);
+        [l renderInContext:ctx];
+        NSLog(@"%@",UIImagePNGRepresentation(UIGraphicsGetImageFromCurrentImageContext()));
+        UIGraphicsEndImageContext();
+    }
+}
+
 @end
 
 @implementation pxSVGRenderPath
@@ -34,8 +83,9 @@
 - (instancetype)initWithXML:(pxXMLNode *)xmlNode
 {
     self = [super init];
-    self.defs = [NSMutableDictionary new];
-    self.root = [self parseObject:xmlNode inheritAttributes:nil];
+    self.xml = xmlNode;
+    self.defCache = [NSMutableDictionary new];
+    self.root = [self parseObject:self.xml inheritAttributes:nil];
     if ([xmlNode.attributes objectForKey:@"viewBox"]) {
         NSArray *vb = [[xmlNode.attributes objectForKey:@"viewBox"] componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
         self.bounds = (CGRect){
@@ -64,24 +114,29 @@
             }
         };
     } else {
-        self.bounds = [self objBounds:self.root];
+        self.bounds = self.root.bounds;
     }
     return self;
 }
-- (CGRect) objBounds:(pxSVGObject*)obj
+- (pxSVGObject*)findDef:(NSString*)name inNode:(pxXMLNode*)xml
 {
-    if ([obj respondsToSelector:@selector(d)]) {
-        UIBezierPath *path = [(id)obj d];
-        if (path) return CGRectApplyAffineTransform(path.bounds, CATransform3DGetAffineTransform(obj.transform));
-    }
-    if ([obj respondsToSelector:@selector(subnodes)]) {
-        CGRect f = CGRectNull;
-        for (pxSVGObject *o in [(id)obj subnodes]) {
-            f = CGRectUnion(f, [self objBounds:o]);
+    id def;
+    for (pxXMLNode *n in xml.childNodes) {
+        if ([[n.attributes objectForKey:@"id"] isEqualToString:name]) {
+            def = [self parseObject:n inheritAttributes:nil];
+            if (def) return def;
         }
-        return CGRectApplyAffineTransform(f, CATransform3DGetAffineTransform(obj.transform));
+        def = [self findDef:name inNode:n];
+        if (def) return def;
     }
-    return CGRectNull;
+    return nil;
+}
+- (pxSVGObject*)findDef:(NSString*)name
+{
+    if (!name) return nil;
+    id def = [self.defCache objectForKey:name];
+    if (def) return def;
+    return [self findDef:name inNode:self.xml];
 }
 - (pxSVGObject*)reuseObjectWithAttributes:(NSDictionary*)attributes
 {
@@ -89,7 +144,7 @@
     if (!href) href = [attributes objectForKey:@"href"];
     if (!href) return nil;
     href = [href substringFromIndex:1];
-    pxSVGObject *oobj = [self.defs objectForKey:href], *obj;
+    pxSVGObject *oobj = [self findDef:href], *obj;
     if (!oobj) return nil;
     obj = [oobj.class new];
     obj.fillColor = oobj.fillColor;
@@ -106,11 +161,11 @@
     if ([attributes objectForKey:@"x"]) tr = CATransform3DTranslate(tr, [[attributes objectForKey:@"x"] doubleValue], 0, 0);
     if ([attributes objectForKey:@"y"]) tr = CATransform3DTranslate(tr, 0, [[attributes objectForKey:@"y"] doubleValue], 0);
     if ([attributes objectForKey:@"width"]) {
-        CGFloat ow = [self objBounds:oobj].size.width, w = [[attributes objectForKey:@"width"] doubleValue];
+        CGFloat ow = oobj.bounds.size.width, w = [[attributes objectForKey:@"width"] doubleValue];
         tr = CATransform3DScale(tr, ow/w, 1, 1);
     }
     if ([attributes objectForKey:@"height"]) {
-        CGFloat oh = [self objBounds:oobj].size.width, h = [[attributes objectForKey:@"height"] doubleValue];
+        CGFloat oh = oobj.bounds.size.height, h = [[attributes objectForKey:@"height"] doubleValue];
         tr = CATransform3DScale(tr, 1, oh/h, 1);
     }
     if ([attributes objectForKey:@"transform"]) tr = CATransform3DConcat(tr, [pxSVGObject transformFromString:[attributes objectForKey:@"transform"]]);
@@ -118,10 +173,10 @@
     obj.animations = oobj.animations;
     return obj;
 }
-- (void)parseLinearGradient:(pxXMLNode*)node
+- (pxSVGGradient*)parseLinearGradient:(pxXMLNode*)node
 {
     NSString *gid = [node.attributes objectForKey:@"id"];
-    if (!gid) return;
+    if (!gid) return nil;
     NSString *href = [node.attributes objectForKey:@"xlink:href"];
     if (!href) href = [node.attributes objectForKey:@"href"];
     CGGradientRef gr;
@@ -129,8 +184,8 @@
     NSMutableArray *cls, *locs;
     if (href) {
         href = [href substringFromIndex:1];
-        pxSVGGradient *g = [self.defs objectForKey:href];
-        if (![g isKindOfClass:[pxSVGGradient class]]) return;
+        pxSVGGradient *g = (id)[self findDef:href];
+        if (![g isKindOfClass:[pxSVGGradient class]]) return nil;
         gr = g.gradient;
         sp = g.startPoint;
         ep = g.endPoint;
@@ -180,8 +235,78 @@
         g.locations = locs;
         g.startPoint = sp;
         g.endPoint = ep;
-        [self.defs setObject:g forKey:gid];
+        [self.defCache setObject:g forKey:gid];
+        return g;
     }
+    return nil;
+}
+- (pxSVGPattern*)parsePattern:(pxXMLNode*)node
+{
+    NSString *pid = [node.attributes objectForKey:@"id"];
+    if (!pid) return nil;
+    NSString *href = [node.attributes objectForKey:@"xlink:href"];
+    if (!href) href = [node.attributes objectForKey:@"href"];
+    pxSVGPattern *p = nil;
+    if (href) {
+        href = [href substringFromIndex:1];
+        pxSVGPattern *op = (id)[self findDef:href];
+        if (![op isKindOfClass:[pxSVGPattern class]]) return nil;
+        p = [pxSVGPattern new];
+        p.id = pid;
+        p.subnodes = op.subnodes;
+        p.transform = op.transform;
+    } else {
+        p = [pxSVGPattern new];
+        p.id = pid;
+        NSMutableArray *sub = [NSMutableArray new];
+        for (pxXMLNode *n in node.childNodes) {
+            pxSVGObject *o = [self parseObject:n inheritAttributes:nil];
+            if (o) [sub addObject:o];
+        }
+        p.subnodes = [NSArray arrayWithArray:sub];
+        p.transform = CATransform3DIdentity;
+    }
+    CGRect pr = p.bounds, tr = CGRectZero;
+    if ([node.attributes objectForKey:@"viewBox"]) {
+        NSArray *vb = [[node.attributes objectForKey:@"viewBox"] componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+        tr = (CGRect){
+            {
+                [vb[0] doubleValue],
+                [vb[1] doubleValue]
+            },{
+                [vb[2] doubleValue],
+                [vb[3] doubleValue]
+            }
+        };
+    } else if ([node.attributes objectForKey:@"width"] &&
+               [node.attributes objectForKey:@"height"]) {
+        CGPoint o = CGPointZero;
+        if ([node.attributes objectForKey:@"x"] &&
+            [node.attributes objectForKey:@"y"]) {
+            o = (CGPoint){
+                [[node.attributes objectForKey:@"x"] doubleValue],
+                [[node.attributes objectForKey:@"y"] doubleValue]
+            };
+        }
+        tr = (CGRect){
+            o,{
+                [[node.attributes objectForKey:@"width"] doubleValue],
+                [[node.attributes objectForKey:@"height"] doubleValue]
+            }
+        };
+    } else {
+        tr = pr;
+    }
+    if (!CGRectEqualToRect(pr, tr)) {
+        p.transform = CATransform3DTranslate(p.transform, -pr.origin.x-pr.size.width/2, -pr.origin.y-pr.size.height/2, 0);
+        p.transform = CATransform3DScale(p.transform, tr.size.width/pr.size.width,tr.size.height/pr.size.height,1);
+        p.transform = CATransform3DTranslate(p.transform, tr.origin.x+tr.size.width/2, tr.origin.y+tr.size.height/2, 0);
+    }
+    if ([node.attributes objectForKey:@"patternTransform"]) {
+        p.transform = CATransform3DConcat(p.transform, [pxSVGObject transformFromString:[node.attributes objectForKey:@"patternTransform"]]);
+    }
+    [self.defCache setObject:p forKey:pid];
+    return p;
 }
 - (pxSVGObject*)parseObject:(pxXMLNode*)node inheritAttributes:(pxSVGObject*)inherit
 {
@@ -195,6 +320,7 @@
         [self parseLinearGradient:node];
         return nil;
     }
+    if ([node.tagName isEqualToString:@"pattern"]) return [self parsePattern:node];;
     Class objClass = pxSVGObject.class;
     if ([node.tagName isEqualToString:@"g"])
         objClass = pxSVGGroup.class;
@@ -223,7 +349,7 @@
         obj.fillOpacity = inherit?inherit.fillOpacity:1;
     if (!obj.strokeColor)
         obj.strokeColor = inherit?inherit.strokeColor:nil;
-    if (obj.id) [self.defs setObject:obj forKey:obj.id];
+    if (obj.id) [self.defCache setObject:obj forKey:obj.id];
     if (node.childNodes.count) {
         NSMutableArray *subnodes = [NSMutableArray new];
         for (pxXMLNode *n in node.childNodes) {
@@ -236,29 +362,41 @@
     }
     return obj;
 }
-- (CALayer *)makeLayerWithNode:(pxSVGObject*)node
+- (CALayer *)makeLayerWithNode:(pxSVGObject*)node rootBounds:(CGRect)bounds;
 {
-    CALayer *l, *fl;
+    CALayer *l;
     if ([node respondsToSelector:@selector(d)]) {
         CAShapeLayer *sl = [CAShapeLayer new];
-        sl.path = [(id)node d].CGPath;
+        UIBezierPath *p = [(id)node d];
+        sl.path = p.CGPath;
         if (node.fillDef) {
             sl.fillColor = [UIColor clearColor].CGColor;
-            id def = [self.defs objectForKey:node.fillDef];
+            id def = [self findDef:node.fillDef];
             if ([def isKindOfClass:[pxSVGGradient class]]) {
                 CAGradientLayer *gl = [CAGradientLayer new];
-                gl.frame = [(id)node d].bounds;
+                gl.frame = p.bounds;
                 gl.startPoint = (CGPoint){([def startPoint].x-gl.frame.origin.x)/gl.frame.size.width,([def startPoint].y-gl.frame.origin.y)/gl.frame.size.height};
                 gl.endPoint = (CGPoint){([def endPoint].x-gl.frame.origin.x)/gl.frame.size.width,([def endPoint].y-gl.frame.origin.y)/gl.frame.size.height};
                 gl.locations = [def locations];
                 gl.colors = [def colors];
                 gl.opacity = isnan(node.fillOpacity)?1:node.fillOpacity;
                 CAShapeLayer *ml = [CAShapeLayer new];
-                ml.frame = (CGRect){{0,0},{gl.frame.size.width+gl.frame.origin.x,gl.frame.size.height+gl.frame.origin.y}};
+                ml.frame = (CGRect){{-p.bounds.origin.x,-p.bounds.origin.y},{p.bounds.size.width+p.bounds.origin.x,p.bounds.size.height+p.bounds.origin.y}};
                 ml.path = sl.path;
                 gl.mask = ml;
                 [sl addSublayer:gl];
-                fl = gl;
+            }
+            if ([def isKindOfClass:[pxSVGPattern class]]) {
+                pxSVGPatternLayer *tl = [pxSVGPatternLayer new];
+                CALayer *pl = [self makeLayerWithNode:def rootBounds:[def bounds]];
+                tl.patternLayer = pl;
+                tl.frame = p.bounds;
+                tl.opacity = isnan(node.fillOpacity)?1:node.fillOpacity;
+                CAShapeLayer *ml = [CAShapeLayer new];
+                ml.frame = (CGRect){{-p.bounds.origin.x,-p.bounds.origin.y},{p.bounds.size.width+p.bounds.origin.x,p.bounds.size.height+p.bounds.origin.y}};
+                ml.path = sl.path;
+                tl.mask = ml;
+                [sl addSublayer:tl];
             }
         } else
             sl.fillColor = [(node.fillColor?:[UIColor blackColor]) colorWithAlphaComponent:isnan(node.fillOpacity)?1:node.fillOpacity].CGColor;
@@ -268,7 +406,7 @@
     } else {
         l = [CALayer new];
     }
-    l.frame = self.bounds;
+    l.frame = bounds;
     CATransform3D tr = node.transform;
     tr = CATransform3DConcat(CATransform3DMakeTranslation( self.bounds.size.width/2,  self.bounds.size.height/2, 0), tr);
     tr = CATransform3DConcat(tr, CATransform3DMakeTranslation(-self.bounds.size.width/2, -self.bounds.size.height/2, 0));
@@ -276,7 +414,7 @@
     l.opacity = node.opacity;
     if ([node respondsToSelector:@selector(subnodes)]) {
         for (pxSVGObject *n in [(id)node subnodes]) {
-            CALayer *sl = [self makeLayerWithNode:n];
+            CALayer *sl = [self makeLayerWithNode:n rootBounds:bounds];
             if (sl) [l addSublayer:sl];
         }
     }
@@ -284,6 +422,6 @@
 }
 - (CALayer *)makeLayer
 {
-    return [self makeLayerWithNode:self.root];
+    return [self makeLayerWithNode:self.root rootBounds:self.bounds];
 }
 @end

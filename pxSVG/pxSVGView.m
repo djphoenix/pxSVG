@@ -28,6 +28,7 @@
 
 - (void)layoutSublayersOfLayer:(CALayer *)layer
 {
+    [super layoutSublayersOfLayer:layer];
     if (layer != self.layer) return;
     self.svgLayer.transform = CATransform3DIdentity;
     [self.svgLayer setFrame:self.layer.bounds];
@@ -51,7 +52,6 @@
 
 - (void)svgLayerDidLoadImage:(pxSVGLayer *)svgLayer
 {
-    [self setNeedsLayout];
     [self layoutSublayersOfLayer:self.layer];
     [self setNeedsDisplay];
     if ([self.svgDelegate respondsToSelector:@selector(svgViewDidLoadImage:)])

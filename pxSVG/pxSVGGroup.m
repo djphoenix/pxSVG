@@ -9,5 +9,14 @@
 #import "pxSVGGroup.h"
 
 @implementation pxSVGGroup
+- (CGRect)bounds
+{
+    CGRect f = CGRectNull;
+    for (pxSVGObject *o in [self subnodes]) {
+        f = CGRectUnion(f, o.bounds);
+    }
+    if (CGRectIsNull(f)) return f;
+    return CGRectApplyAffineTransform(f, CATransform3DGetAffineTransform(self.transform));
+}
 
 @end
