@@ -29,13 +29,10 @@
 - (void)layoutSublayersOfLayer:(CALayer *)layer
 {
     if (layer != self.layer) return;
+    self.svgLayer.transform = CATransform3DIdentity;
     [self.svgLayer setFrame:self.layer.bounds];
-}
-
-- (void)svgLayerDidLoadImage:(pxSVGLayer *)svgLayer
-{
     CATransform3D tr = CATransform3DIdentity;
-    CGRect c = svgLayer.contentRect;
+    CGRect c = self.svgLayer.contentRect;
     switch (self.contentMode) {
         case UIViewContentModeScaleAspectFit: {
             CGFloat
@@ -43,12 +40,19 @@
             scy = c.size.height/self.bounds.size.height,
             sc = MAX(scx,scy);
             tr = CATransform3DMakeScale(1/sc, 1/sc, 1);
-            tr = CATransform3DTranslate(tr, -c.origin.x/sc, -c.origin.y/sc, 0);
+            tr = CATransform3DTranslate(tr, -c.size.width/2, -c.size.height/2, 0);
+            tr = CATransform3DTranslate(tr, self.bounds.size.width/2, self.bounds.size.height/2, 0);
             break;
         }
         default: break;
     }
-    [svgLayer setTransform:tr];
+    [self.svgLayer setTransform:tr];
+}
+
+- (void)svgLayerDidLoadImage:(pxSVGLayer *)svgLayer
+{
+    [self setNeedsLayout];
+    [self setNeedsDisplay];
     if ([self.svgDelegate respondsToSelector:@selector(svgViewDidLoadImage:)])
         [self.svgDelegate svgViewDidLoadImage:self];
 }

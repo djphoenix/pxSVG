@@ -25,7 +25,18 @@
 {
     self = [super init];
     self.root = [self parseObject:xmlNode inheritAttributes:nil];
-    if ([xmlNode.attributes objectForKey:@"width"] &&
+    if ([xmlNode.attributes objectForKey:@"viewBox"]) {
+        NSArray *vb = [[xmlNode.attributes objectForKey:@"viewBox"] componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+        self.bounds = (CGRect){
+            {
+                [vb[0] doubleValue],
+                [vb[1] doubleValue]
+            },{
+                [vb[2] doubleValue],
+                [vb[3] doubleValue]
+            }
+        };
+    } else if ([xmlNode.attributes objectForKey:@"width"] &&
         [xmlNode.attributes objectForKey:@"height"]) {
         CGPoint o = CGPointZero;
         if ([xmlNode.attributes objectForKey:@"x"] &&
@@ -39,17 +50,6 @@
             o,{
                 [[xmlNode.attributes objectForKey:@"width"] doubleValue],
                 [[xmlNode.attributes objectForKey:@"height"] doubleValue]
-            }
-        };
-    } else if ([xmlNode.attributes objectForKey:@"viewBox"]) {
-        NSArray *vb = [[xmlNode.attributes objectForKey:@"viewBox"] componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-        self.bounds = (CGRect){
-            {
-                [vb[0] doubleValue],
-                [vb[1] doubleValue]
-            },{
-                [vb[2] doubleValue],
-                [vb[3] doubleValue]
             }
         };
     } else {
@@ -112,17 +112,12 @@
     }
     return obj;
 }
-- (CALayer *)makeLayerWithNode:(pxSVGObject*)node withOffset:(CGPoint)off
+- (CALayer *)makeLayerWithNode:(pxSVGObject*)node
 {
-    CGRect f = [self objBounds:node];
-    if (CGRectIsNull(f)) return nil;
     CALayer *l;
     if ([node respondsToSelector:@selector(d)]) {
         CAShapeLayer *sl = [CAShapeLayer new];
-        CGAffineTransform t = CGAffineTransformMakeTranslation(-f.origin.x, -f.origin.y);
-        CGPathRef p = CGPathCreateCopyByTransformingPath([(id)node d].CGPath, &t);
-        sl.path = p;
-        CGPathRelease(p);
+        sl.path = [(id)node d].CGPath;
         sl.fillColor = (node.fillColor?:[UIColor blackColor]).CGColor;
         sl.strokeColor = node.strokeColor.CGColor;
         sl.lineWidth = node.strokeWidth==NAN?0:node.strokeWidth;
@@ -130,12 +125,15 @@
     } else {
         l = [CALayer new];
     }
-    l.frame = CGRectOffset(f, -off.x, -off.y);
-    l.transform = node.transform;
+    l.frame = self.bounds;
+    CATransform3D tr = node.transform;
+    tr = CATransform3DConcat(CATransform3DMakeTranslation(-self.bounds.size.width/2,  self.bounds.size.height/2, 0), tr);
+    tr = CATransform3DConcat(tr, CATransform3DMakeTranslation( self.bounds.size.width/2, -self.bounds.size.height/2, 0));
+    l.transform = tr;
     l.opacity = node.opacity;
     if ([node respondsToSelector:@selector(subnodes)]) {
         for (pxSVGObject *n in [(id)node subnodes]) {
-            CALayer *sl = [self makeLayerWithNode:n withOffset:(CGPoint){f.origin.x+off.x,f.origin.y+off.y}];
+            CALayer *sl = [self makeLayerWithNode:n];
             if (sl) [l addSublayer:sl];
         }
     }
@@ -143,6 +141,6 @@
 }
 - (CALayer *)makeLayer
 {
-    return [self makeLayerWithNode:self.root withOffset:CGPointZero];
+    return [self makeLayerWithNode:self.root];
 }
 @end

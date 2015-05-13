@@ -36,9 +36,6 @@
             }
         } else if ([op isEqualToString:@"translate"]) {
             switch (i) {
-                case 1:
-                    tr = CATransform3DTranslate(tr, p[0], 0, 0);
-                    break;
                 case 2:
                     tr = CATransform3DTranslate(tr, p[0], p[1], 0);
                     break;

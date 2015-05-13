@@ -12,6 +12,7 @@
 @interface pxSVGLayer ()
 @property NSOperation *loadOperation;
 @property NSOperation *parseOperation;
+@property CGRect contentRect;
 @end
 
 @implementation pxSVGLayer
@@ -103,6 +104,7 @@
 {
     [self clean];
     [self addSublayer:[image makeLayer]];
+    self.contentRect = image.bounds;
     if ([self.svgDelegate respondsToSelector:@selector(svgLayerDidLoadImage:)])
         [self.svgDelegate svgLayerDidLoadImage:self];
 }
@@ -118,15 +120,7 @@
     if (self.loadOperation) [self.loadOperation cancel];
     if (self.parseOperation) [self.parseOperation cancel];
     while (self.sublayers.count) [self.sublayers.firstObject removeFromSuperlayer];
-}
-
-- (CGRect)contentRect
-{
-    CGRect f = CGRectNull;
-    for (CALayer *l in self.sublayers) {
-        f = CGRectUnion(f, l.frame);
-    }
-    return f;
+    self.contentRect = CGRectZero;
 }
 
 @end

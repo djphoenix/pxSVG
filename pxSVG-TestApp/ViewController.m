@@ -19,6 +19,7 @@
 - (instancetype)initWithFrame:(CGRect)frame
 {
     self = [super initWithFrame:frame];
+    self.backgroundColor = [UIColor whiteColor];
     pxSVGView *sv = [[pxSVGView alloc] initWithFrame:self.contentView.bounds];
     sv.svgDelegate = self;
     sv.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
@@ -54,10 +55,10 @@
 - (instancetype)init
 {
     UICollectionViewFlowLayout *layout = [UICollectionViewFlowLayout new];
-    layout.itemSize = (CGSize){160,160};
+    layout.itemSize = (CGSize){159,159};
     layout.sectionInset = UIEdgeInsetsZero;
-    layout.minimumInteritemSpacing = 0;
-    layout.minimumLineSpacing = 0;
+    layout.minimumInteritemSpacing = 1;
+    layout.minimumLineSpacing = 1;
     layout.scrollDirection = UICollectionViewScrollDirectionVertical;
     self = [super initWithCollectionViewLayout:layout];
     self.images = [NSBundle URLsForResourcesWithExtension:@"svg" subdirectory:nil inBundleWithURL:[NSBundle mainBundle].bundleURL];
@@ -67,7 +68,7 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    self.collectionView.backgroundColor = [UIColor whiteColor];
+    self.collectionView.backgroundColor = [UIColor grayColor];
     [self.collectionView registerClass:[SVGCollectionCell class] forCellWithReuseIdentifier:@"cell"];
 }
 
