@@ -35,8 +35,8 @@
 @end
 
 @interface pxSVGPatternLayer : CALayer
-@property CALayer *patternLayer;
-@property CATransform3D patternTransform;
+@property (nonatomic) CALayer *patternLayer;
+@property (nonatomic) CATransform3D patternTransform;
 @end
 
 @implementation pxSVGPatternLayer
@@ -49,9 +49,35 @@
 - (instancetype)init
 {
     self = [super init];
-    self.delegate = self;
     [self setNeedsDisplayOnBoundsChange:YES];
+    [self setNeedsDisplay];
     return self;
+}
+
+- (void)dealloc
+{
+    self.patternLayer = nil;
+}
+
+- (void)setPatternLayer:(CALayer *)patternLayer
+{
+    _patternLayer = patternLayer;
+    [self setNeedsDisplay];
+}
+
+- (void)setPatternTransform:(CATransform3D)patternTransform
+{
+    _patternTransform = patternTransform;
+    [self setNeedsDisplay];
+}
+
+- (void)setNeedsDisplay
+{
+    if ([NSThread isMainThread]) return [super setNeedsDisplay];
+    __weak id weakself = self;
+    [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+        if (weakself) [weakself setNeedsDisplay];
+    }];
 }
 
 - (void)drawInContext:(CGContextRef)ctx
