@@ -21,6 +21,8 @@
 @end
 
 @interface pxSVGPattern : pxSVGGroup
+@property CATransform3D patternTransform;
+@property CGRect patternBounds;
 @end
 
 @implementation pxSVGPattern
@@ -35,6 +37,7 @@
 
 @interface pxSVGPatternLayer : CALayer
 @property CALayer *patternLayer;
+@property CATransform3D patternTransform;
 @end
 
 @implementation pxSVGPatternLayer
@@ -52,24 +55,27 @@
     return self;
 }
 
-- (BOOL)drawsAsynchronously
-{
-    return NO;
-}
-
 - (void)drawInContext:(CGContextRef)ctx
 {
     CGRect r = CGContextGetClipBoundingBox(ctx);
-    CGContextTranslateCTM(ctx, -r.size.width/2-37.73, -r.size.height/2);
-    [self.patternLayer drawInContext:ctx];
-    {
-        CALayer *l = self.patternLayer;
-        UIGraphicsBeginImageContext([l frame].size);
-        CGContextRef ctx = UIGraphicsGetCurrentContext();
-        CGContextTranslateCTM(ctx, -l.frame.origin.x, -l.frame.origin.y);
-        [l renderInContext:ctx];
-        NSLog(@"%@",UIImagePNGRepresentation(UIGraphicsGetImageFromCurrentImageContext()));
-        UIGraphicsEndImageContext();
+    CGAffineTransform tr = CATransform3DGetAffineTransform(self.patternTransform);
+    CGSize sz = self.patternLayer.frame.size;
+    sz = CGSizeApplyAffineTransform(sz, tr);
+    CGPoint off = CGPointApplyAffineTransform((CGPoint){0,0}, tr); tr.tx = 0; tr.ty = 0;
+    off.x = fmod(off.x,sz.width);
+    off.y = fmod(off.y,sz.height);
+    while (off.y < r.size.height) {
+        CGFloat x = off.x;
+        while (x < r.size.width) {
+            CGContextSaveGState(ctx);
+            CGContextTranslateCTM(ctx, x, off.y);
+            CGContextConcatCTM(ctx, tr);
+            CGContextTranslateCTM(ctx, self.patternLayer.frame.origin.x, self.patternLayer.frame.origin.y);
+            [self.patternLayer renderInContext:ctx];
+            CGContextRestoreGState(ctx);
+            x += sz.width;
+        }
+        off.y += sz.height;
     }
 }
 
@@ -253,23 +259,35 @@
         if (![op isKindOfClass:[pxSVGPattern class]]) return nil;
         p = [pxSVGPattern new];
         p.id = pid;
+        p.opacity = op.opacity;
+        p.fillOpacity = op.fillOpacity;
+        p.fillColor = op.fillColor;
+        p.fillDef = op.fillDef;
+        p.strokeColor = op.strokeColor;
+        p.strokeWidth = op.strokeWidth;
         p.subnodes = op.subnodes;
         p.transform = op.transform;
+        p.patternTransform = op.patternTransform;
+        p.patternBounds = op.patternBounds;
     } else {
         p = [pxSVGPattern new];
         p.id = pid;
+        p.opacity = NAN;
+        p.fillOpacity = NAN;
+        [p loadAttributes:node.attributes];
         NSMutableArray *sub = [NSMutableArray new];
         for (pxXMLNode *n in node.childNodes) {
-            pxSVGObject *o = [self parseObject:n inheritAttributes:nil];
+            pxSVGObject *o = [self parseObject:n inheritAttributes:p];
             if (o) [sub addObject:o];
         }
         p.subnodes = [NSArray arrayWithArray:sub];
         p.transform = CATransform3DIdentity;
+        p.patternTransform = CATransform3DIdentity;
+        p.patternBounds = CGRectNull;
     }
-    CGRect pr = p.bounds, tr = CGRectZero;
     if ([node.attributes objectForKey:@"viewBox"]) {
         NSArray *vb = [[node.attributes objectForKey:@"viewBox"] componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-        tr = (CGRect){
+        p.patternBounds = (CGRect){
             {
                 [vb[0] doubleValue],
                 [vb[1] doubleValue]
@@ -288,22 +306,17 @@
                 [[node.attributes objectForKey:@"y"] doubleValue]
             };
         }
-        tr = (CGRect){
+        p.patternBounds = (CGRect){
             o,{
                 [[node.attributes objectForKey:@"width"] doubleValue],
                 [[node.attributes objectForKey:@"height"] doubleValue]
             }
         };
-    } else {
-        tr = pr;
-    }
-    if (!CGRectEqualToRect(pr, tr)) {
-        p.transform = CATransform3DTranslate(p.transform, -pr.origin.x-pr.size.width/2, -pr.origin.y-pr.size.height/2, 0);
-        p.transform = CATransform3DScale(p.transform, tr.size.width/pr.size.width,tr.size.height/pr.size.height,1);
-        p.transform = CATransform3DTranslate(p.transform, tr.origin.x+tr.size.width/2, tr.origin.y+tr.size.height/2, 0);
+    } else if (CGRectIsNull(p.patternBounds)) {
+        p.patternBounds = p.bounds;
     }
     if ([node.attributes objectForKey:@"patternTransform"]) {
-        p.transform = CATransform3DConcat(p.transform, [pxSVGObject transformFromString:[node.attributes objectForKey:@"patternTransform"]]);
+        p.patternTransform = CATransform3DConcat(p.patternTransform, [pxSVGObject transformFromString:[node.attributes objectForKey:@"patternTransform"]]);
     }
     [self.defCache setObject:p forKey:pid];
     return p;
@@ -388,8 +401,9 @@
             }
             if ([def isKindOfClass:[pxSVGPattern class]]) {
                 pxSVGPatternLayer *tl = [pxSVGPatternLayer new];
-                CALayer *pl = [self makeLayerWithNode:def rootBounds:[def bounds]];
+                CALayer *pl = [self makeLayerWithNode:def rootBounds:[def patternBounds]];
                 tl.patternLayer = pl;
+                tl.patternTransform = CATransform3DTranslate([def patternTransform],p.bounds.origin.x,p.bounds.origin.y,0);
                 tl.frame = p.bounds;
                 tl.opacity = isnan(node.fillOpacity)?1:node.fillOpacity;
                 CAShapeLayer *ml = [CAShapeLayer new];
@@ -406,11 +420,12 @@
     } else {
         l = [CALayer new];
     }
-    l.frame = bounds;
+    l.frame = (CGRect){{-bounds.origin.x,-bounds.origin.y},bounds.size};
     CATransform3D tr = node.transform;
-    tr = CATransform3DConcat(CATransform3DMakeTranslation( self.bounds.size.width/2,  self.bounds.size.height/2, 0), tr);
-    tr = CATransform3DConcat(tr, CATransform3DMakeTranslation(-self.bounds.size.width/2, -self.bounds.size.height/2, 0));
+    tr = CATransform3DConcat(CATransform3DMakeTranslation( bounds.size.width/2,  bounds.size.height/2, 0), tr);
+    tr = CATransform3DConcat(tr, CATransform3DMakeTranslation(-bounds.size.width/2, -bounds.size.height/2, 0));
     l.transform = tr;
+    bounds.origin = CGPointZero;
     l.opacity = node.opacity;
     if ([node respondsToSelector:@selector(subnodes)]) {
         for (pxSVGObject *n in [(id)node subnodes]) {
