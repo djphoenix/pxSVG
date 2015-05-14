@@ -12,6 +12,7 @@
 @interface pxSVGLayer ()
 @property NSOperation *loadOperation;
 @property NSOperation *parseOperation;
+@property NSOperation *layerOperation;
 @property CGRect contentRect;
 @end
 
@@ -39,6 +40,17 @@
     return pq;
 }
 
++ (NSOperationQueue*)layererQueue
+{
+    static NSOperationQueue *pq;
+    if (!pq) {
+        pq = [NSOperationQueue new];
+        pq.name = @"pxSVG Layer generator queue";
+        [pq setMaxConcurrentOperationCount:10];
+    }
+    return pq;
+}
+
 - (void)dealloc
 {
     if (self.loadOperation) [self.loadOperation cancel];
@@ -50,24 +62,34 @@
     [self clean];
     __weak pxSVGLayer *weakself = self;
     __block NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{
-        NSURLResponse *resp;
-        NSError *err;
+        __block NSURLResponse *resp;
+        __block NSError *err;
         NSData *data;
         data = [NSURLConnection sendSynchronousRequest:[NSURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadRevalidatingCacheData timeoutInterval:30] returningResponse:&resp error:&err];
-        if ([op isCancelled]) return;
-        NSString *str = data?[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]:nil;
-        NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
-            if ([op isCancelled]) return;
-            if (!weakself) return;
-            weakself.loadOperation = nil;
-            op = nil;
-            NSError *error = err;
-            if (!error && [resp isKindOfClass:[NSHTTPURLResponse class]] && (((NSHTTPURLResponse*)resp).statusCode != 200))
-                error = [NSError errorWithDomain:@"pxSVGLoader.httpStatus" code:((NSHTTPURLResponse*)resp).statusCode userInfo:nil];
-            if (!error && !str)
-                error = [NSError errorWithDomain:@"pxSVGLoader.emptyData" code:0 userInfo:nil];
-            if (error) return [weakself loadError:error];
+        if ([op isCancelled]) {
+            op = nil, data = nil, resp = nil, err = nil;
+            return;
+        }
+        __block NSString *str = data?[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]:nil;
+        __block NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
+            sync = nil;
+            if ([op isCancelled] || !weakself) {
+                op = nil, resp = nil, err = nil, str = nil;
+                return;
+            }
+            weakself.loadOperation = op = nil;
+            if (!err && [resp isKindOfClass:[NSHTTPURLResponse class]] && (((NSHTTPURLResponse*)resp).statusCode != 200))
+                err = [NSError errorWithDomain:@"pxSVGLoader.httpStatus" code:((NSHTTPURLResponse*)resp).statusCode userInfo:nil];
+            if (!err && !str)
+                err = [NSError errorWithDomain:@"pxSVGLoader.emptyData" code:0 userInfo:nil];
+            if (err) {
+                resp = nil, str = nil;
+                [weakself loadError:err];
+                err = nil;
+                return;
+            }
             [weakself loadString:str];
+            resp = nil, err = nil, str = nil;
         }];
         [[NSOperationQueue mainQueue] addOperations:@[sync] waitUntilFinished:YES];
     }];
@@ -86,15 +108,24 @@
     [self clean];
     __weak pxSVGLayer *weakself = self;
     __block NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{
-        pxSVGImage *img = [pxSVGImage svgImageWithXML:string];
-        if ([op isCancelled]) return;
-        NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
-            if ([op isCancelled]) return;
-            if (!weakself) return;
-            weakself.parseOperation = nil;
-            op = nil;
-            if (!img) return [weakself loadError:[NSError errorWithDomain:@"pxSVGParser.parseError" code:0 userInfo:nil]];
+        __block pxSVGImage *img = [pxSVGImage svgImageWithXML:string];
+        if ([op isCancelled]) {
+            op = nil, img = nil;
+            return;
+        }
+        __block NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
+            sync = nil;
+            if ([op isCancelled] || !weakself) {
+                op = nil, img = nil;
+                return;
+            }
+            weakself.parseOperation = op = nil;
+            if (!img) {
+                img = nil;
+                return [weakself loadError:[NSError errorWithDomain:@"pxSVGParser.parseError" code:0 userInfo:nil]];
+            }
             [weakself loadImage:img];
+            img = nil;
         }];
         [[NSOperationQueue mainQueue] addOperations:@[sync] waitUntilFinished:YES];
     }];
@@ -105,24 +136,32 @@
 - (void)loadImage:(pxSVGImage*)image
 {
     [self clean];
+    CGRect bounds = image.bounds;
     __weak pxSVGLayer *weakself = self;
     __block NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{
-        CALayer *img = [image makeLayer];
-        if ([op isCancelled]) return;
-        NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
-            if ([op isCancelled]) return;
-            if (!weakself) return;
+        __block CALayer *img = [image makeLayer];
+        if ([op isCancelled]) {
+            op = nil, img = nil;
+            return;
+        }
+        __block NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
+            sync = nil;
+            if ([op isCancelled] || !weakself) {
+                img = nil, op = nil;
+                return;
+            }
+            weakself.layerOperation = op = nil;
+            [weakself clean];
             [weakself addSublayer:img];
-            weakself.parseOperation = nil;
-            op = nil;
-            weakself.contentRect = image.bounds;
+            img = nil;
+            weakself.contentRect = bounds;
             if ([weakself.svgDelegate respondsToSelector:@selector(svgLayerDidLoadImage:)])
                 [weakself.svgDelegate svgLayerDidLoadImage:weakself];
         }];
         [[NSOperationQueue mainQueue] addOperations:@[sync] waitUntilFinished:YES];
     }];
-    op.threadPriority = 0.1f;
-    [[self.class parseQueue] addOperation:self.parseOperation=op];
+    op.threadPriority = 0.2f;
+    [[self.class layererQueue] addOperation:self.layerOperation=op];
 }
 
 - (void)loadError:(NSError *)error
@@ -135,6 +174,7 @@
 {
     if (self.loadOperation) [self.loadOperation cancel];
     if (self.parseOperation) [self.parseOperation cancel];
+    if (self.layerOperation) [self.layerOperation cancel];
     while (self.sublayers.count) [self.sublayers.firstObject removeFromSuperlayer];
     self.contentRect = CGRectZero;
 }
