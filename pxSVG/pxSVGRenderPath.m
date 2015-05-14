@@ -142,6 +142,7 @@
     } else {
         self.bounds = self.root.bounds;
     }
+    self.xml = nil;
     return self;
 }
 - (pxSVGObject*)findDef:(NSString*)name inNode:(pxXMLNode*)xml
@@ -153,7 +154,10 @@
             if (def) return def;
         }
         def = [self findDef:name inNode:n];
-        if (def) return def;
+        if (def) {
+            [self.defCache setObject:def forKey:name];
+            return def;
+        }
     }
     return nil;
 }
@@ -384,6 +388,7 @@
     if (!obj.strokeColor)
         obj.strokeColor = inherit?inherit.strokeColor:nil;
     if (obj.id) [self.defCache setObject:obj forKey:obj.id];
+    if (obj.fillDef) [self findDef:obj.fillDef];
     if (node.childNodes.count) {
         NSMutableArray *subnodes = [NSMutableArray new];
         for (pxXMLNode *n in node.childNodes) {
