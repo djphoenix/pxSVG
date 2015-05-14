@@ -153,12 +153,22 @@
     pxSVGObject *oobj = [self findDef:href], *obj;
     if (!oobj) return nil;
     obj = [oobj.class new];
-    obj.fillColor = oobj.fillColor;
-    obj.fillDef = oobj.fillDef;
     obj.strokeColor = oobj.strokeColor;
     obj.strokeWidth = oobj.strokeWidth;
     obj.opacity = oobj.opacity;
     obj.fillOpacity = oobj.fillOpacity;
+    obj.fillColor = oobj.fillColor;
+    obj.fillDef = oobj.fillDef;
+    if ([attributes objectForKey:@"fill"]) {
+        CGFloat a = obj.fillOpacity;
+        if ([[attributes objectForKey:@"fill"] hasPrefix:@"url("]) {
+            NSString *u = [[attributes objectForKey:@"fill"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            u = [[u substringWithRange:NSMakeRange(3, u.length-4)] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\n\r\t ()#"]];
+            obj.fillDef = u;
+        } else obj.fillColor = [pxSVGObject colorWithSVGColor:[attributes objectForKey:@"fill"]];
+        if (obj.fillColor) [obj.fillColor getWhite:nil alpha:&a];
+        obj.fillOpacity = [attributes objectForKey:@"fill-opacity"]?[[attributes objectForKey:@"fill-opacity"] doubleValue]:a;
+    }
     if ([oobj respondsToSelector:@selector(d)])
         [(id)obj setD:[(id)oobj d]];
     if ([oobj respondsToSelector:@selector(subnodes)])
@@ -339,6 +349,8 @@
         objClass = pxSVGGroup.class;
     else if ([node.tagName isEqualToString:@"svg"])
         objClass = pxSVGGroup.class;
+    else if ([node.tagName isEqualToString:@"clipPath"])
+        objClass = pxSVGGroup.class;
     else if ([node.tagName isEqualToString:@"defs"])
         objClass = pxSVGGroup.class;
     else if ([node.tagName isEqualToString:@"path"])
@@ -367,7 +379,7 @@
         NSMutableArray *subnodes = [NSMutableArray new];
         for (pxXMLNode *n in node.childNodes) {
             pxSVGObject *o = [self parseObject:n inheritAttributes:obj];
-            if (o && ![n.tagName isEqualToString:@"defs"]) {
+            if (o && ![n.tagName isEqualToString:@"defs"] && ![n.tagName isEqualToString:@"clipPath"]) {
                 [subnodes addObject:o];
             }
         }
