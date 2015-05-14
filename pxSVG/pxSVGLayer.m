@@ -103,10 +103,23 @@
 - (void)loadImage:(pxSVGImage*)image
 {
     [self clean];
-    [self addSublayer:[image makeLayer]];
-    self.contentRect = image.bounds;
-    if ([self.svgDelegate respondsToSelector:@selector(svgLayerDidLoadImage:)])
-        [self.svgDelegate svgLayerDidLoadImage:self];
+    __weak pxSVGLayer *weakself = self;
+    __block NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{
+        CALayer *img = [image makeLayer];
+        if ([op isCancelled]) return;
+        NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
+            if ([op isCancelled]) return;
+            if (!weakself) return;
+            [weakself addSublayer:img];
+            weakself.parseOperation = nil;
+            weakself.contentRect = image.bounds;
+            if ([weakself.svgDelegate respondsToSelector:@selector(svgLayerDidLoadImage:)])
+                [weakself.svgDelegate svgLayerDidLoadImage:weakself];
+        }];
+        [[NSOperationQueue mainQueue] addOperations:@[sync] waitUntilFinished:YES];
+    }];
+    op.threadPriority = 0.1f;
+    [[self.class parseQueue] addOperation:self.parseOperation=op];
 }
 
 - (void)loadError:(NSError *)error
