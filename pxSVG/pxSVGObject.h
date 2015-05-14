@@ -17,6 +17,7 @@
 @property NSArray *animations;
 @property UIColor *fillColor;
 @property NSString *fillDef;
+@property NSString *clipDef;
 @property UIColor *strokeColor;
 @property CGFloat strokeWidth;
 @property CGFloat opacity;

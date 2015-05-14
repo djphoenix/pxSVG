@@ -108,6 +108,11 @@
         u = [[u substringWithRange:NSMakeRange(3, u.length-4)] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\n\r\t ()#"]];
         self.fillDef = u;
     } else self.fillColor = [self.class colorWithSVGColor:[ma objectForKey:@"fill"]];
+    if ([ma objectForKey:@"clip-path"]) {
+        NSString *u = [[ma objectForKey:@"clip-path"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        u = [[u substringWithRange:NSMakeRange(3, u.length-4)] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\n\r\t ()#"]];
+        self.clipDef = u;
+    }
     self.strokeColor = [self.class colorWithSVGColor:[ma objectForKey:@"stroke"]];
     self.strokeWidth = [ma objectForKey:@"stroke-width"]?[[ma objectForKey:@"stroke-width"] doubleValue]:NAN;
     self.transform = [self.class transformFromString:[ma objectForKey:@"transform"]];

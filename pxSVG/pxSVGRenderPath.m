@@ -183,6 +183,7 @@
     obj.fillOpacity = oobj.fillOpacity;
     obj.fillColor = oobj.fillColor;
     obj.fillDef = oobj.fillDef;
+    obj.clipDef = oobj.clipDef;
     if ([attributes objectForKey:@"fill"]) {
         CGFloat a = obj.fillOpacity;
         if ([[attributes objectForKey:@"fill"] hasPrefix:@"url("]) {
@@ -286,6 +287,7 @@
         p.fillOpacity = op.fillOpacity;
         p.fillColor = op.fillColor;
         p.fillDef = op.fillDef;
+        p.clipDef = op.clipDef;
         p.strokeColor = op.strokeColor;
         p.strokeWidth = op.strokeWidth;
         p.subnodes = op.subnodes;
@@ -389,6 +391,7 @@
         obj.strokeColor = inherit?inherit.strokeColor:nil;
     if (obj.id) [self.defCache setObject:obj forKey:obj.id];
     if (obj.fillDef) [self findDef:obj.fillDef];
+    if (obj.clipDef) [self findDef:obj.clipDef];
     if (node.childNodes.count) {
         NSMutableArray *subnodes = [NSMutableArray new];
         for (pxXMLNode *n in node.childNodes) {
@@ -400,6 +403,19 @@
         [obj setSubnodes:[NSArray arrayWithArray:subnodes]];
     }
     return obj;
+}
+- (UIBezierPath*)mergePath:(pxSVGObject*)node
+{
+    UIBezierPath *bp = [UIBezierPath new];
+    if ([node respondsToSelector:@selector(d)]) {
+        [bp appendPath:[(id)node d]];
+    }
+    if ([node respondsToSelector:@selector(subnodes)]) {
+        for (pxSVGObject *o in [(id)node subnodes]) {
+            [bp appendPath:[self mergePath:o]];
+        }
+    }
+    return bp;
 }
 - (CALayer *)makeLayerWithNode:(pxSVGObject*)node rootBounds:(CGRect)bounds;
 {
@@ -445,6 +461,15 @@
         l = sl;
     } else {
         l = [CALayer new];
+    }
+    if (node.clipDef) {
+        id def = [self findDef:node.clipDef];
+        if ([def isKindOfClass:[pxSVGObject class]]) {
+            CAShapeLayer *ml = [CAShapeLayer new];
+            ml.frame = (CGRect){CGPointZero,bounds.size};
+            ml.path = [self mergePath:def].CGPath;
+            l.mask = ml;
+        }
     }
     l.frame = (CGRect){{-bounds.origin.x,-bounds.origin.y},bounds.size};
     CATransform3D tr = node.transform;
