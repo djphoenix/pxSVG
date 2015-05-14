@@ -55,13 +55,15 @@
 {
     if (self.loadOperation) [self.loadOperation cancel];
     if (self.parseOperation) [self.parseOperation cancel];
+    if (self.layerOperation) [self.layerOperation cancel];
+    self.layerOperation = self.parseOperation = self.loadOperation = nil;
 }
 
 - (void)loadURL:(NSURL *)url
 {
     [self clean];
     __weak pxSVGLayer *weakself = self;
-    __block NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{
+    __block NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{ @autoreleasepool {
         __block NSURLResponse *resp;
         __block NSError *err;
         NSData *data;
@@ -71,7 +73,8 @@
             return;
         }
         __block NSString *str = data?[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]:nil;
-        __block NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
+        data = nil;
+        __block NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{ @autoreleasepool {
             sync = nil;
             if ([op isCancelled] || !weakself) {
                 op = nil, resp = nil, err = nil, str = nil;
@@ -90,9 +93,9 @@
             }
             [weakself loadString:str];
             resp = nil, err = nil, str = nil;
-        }];
+        } }];
         [[NSOperationQueue mainQueue] addOperations:@[sync] waitUntilFinished:YES];
-    }];
+    } }];
     op.name = url.absoluteString;
     op.threadPriority = 0.1f;
     [[self.class loadQueue] addOperation:self.loadOperation=op];
@@ -107,13 +110,13 @@
 {
     [self clean];
     __weak pxSVGLayer *weakself = self;
-    __block NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{
+    __block NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{ @autoreleasepool {
         __block pxSVGImage *img = [pxSVGImage svgImageWithXML:string];
         if ([op isCancelled]) {
             op = nil, img = nil;
             return;
         }
-        __block NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
+        __block NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{ @autoreleasepool {
             sync = nil;
             if ([op isCancelled] || !weakself) {
                 op = nil, img = nil;
@@ -126,9 +129,9 @@
             }
             [weakself loadImage:img];
             img = nil;
-        }];
+        } }];
         [[NSOperationQueue mainQueue] addOperations:@[sync] waitUntilFinished:YES];
-    }];
+    } }];
     op.threadPriority = 0.1f;
     [[self.class parseQueue] addOperation:self.parseOperation=op];
 }
@@ -138,13 +141,13 @@
     [self clean];
     CGRect bounds = image.bounds;
     __weak pxSVGLayer *weakself = self;
-    __block NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{
+    __block NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{ @autoreleasepool {
         __block CALayer *img = [image makeLayer];
         if ([op isCancelled]) {
             op = nil, img = nil;
             return;
         }
-        __block NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{
+        __block NSBlockOperation *sync = [NSBlockOperation blockOperationWithBlock:^{ @autoreleasepool {
             sync = nil;
             if ([op isCancelled] || !weakself) {
                 img = nil, op = nil;
@@ -157,26 +160,29 @@
             weakself.contentRect = bounds;
             if ([weakself.svgDelegate respondsToSelector:@selector(svgLayerDidLoadImage:)])
                 [weakself.svgDelegate svgLayerDidLoadImage:weakself];
-        }];
+        } }];
         [[NSOperationQueue mainQueue] addOperations:@[sync] waitUntilFinished:YES];
-    }];
+    } }];
     op.threadPriority = 0.2f;
     [[self.class layererQueue] addOperation:self.layerOperation=op];
 }
 
 - (void)loadError:(NSError *)error
 {
+    [self clean];
     if ([self.svgDelegate respondsToSelector:@selector(svgLayer:didFailedLoad:)])
         [self.svgDelegate svgLayer:self didFailedLoad:error];
 }
 
 - (void)clean
 {
-    if (self.loadOperation) [self.loadOperation cancel];
-    if (self.parseOperation) [self.parseOperation cancel];
-    if (self.layerOperation) [self.layerOperation cancel];
-    while (self.sublayers.count) [self.sublayers.firstObject removeFromSuperlayer];
-    self.contentRect = CGRectZero;
+    @autoreleasepool {
+        if (self.loadOperation) [self.loadOperation cancel];
+        if (self.parseOperation) [self.parseOperation cancel];
+        if (self.layerOperation) [self.layerOperation cancel];
+        while (self.sublayers.count) [self.sublayers.firstObject removeFromSuperlayer];
+        self.contentRect = CGRectZero;
+    }
 }
 
 @end
