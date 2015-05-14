@@ -164,7 +164,7 @@
         if (self.loadOperation) {[self.loadOperation cancel];self.loadOperation = nil;}
         if (self.parseOperation) {[self.parseOperation cancel];self.parseOperation = nil;}
         if (self.layerOperation) {[self.layerOperation cancel];self.layerOperation = nil;}
-        while (self.sublayers.count) [self.sublayers.firstObject removeFromSuperlayer];
+        for (CALayer *l in [self.sublayers copy]) [l removeFromSuperlayer];
         self.contentRect = CGRectZero;
     }
 }
