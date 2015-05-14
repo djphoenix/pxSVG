@@ -11,7 +11,6 @@
 #import "pxSVGPath.h"
 
 @interface pxSVGGradient : NSObject
-@property CGGradientRef gradient;
 @property NSArray *colors;
 @property NSArray *locations;
 @property CGPoint startPoint, endPoint;
@@ -195,21 +194,18 @@
     if (!gid) return nil;
     NSString *href = [node.attributes objectForKey:@"xlink:href"];
     if (!href) href = [node.attributes objectForKey:@"href"];
-    CGGradientRef gr;
     CGPoint sp = CGPointZero, ep = (CGPoint){INFINITY,INFINITY};
     NSMutableArray *cls, *locs;
     if (href) {
         href = [href substringFromIndex:1];
         pxSVGGradient *g = (id)[self findDef:href];
         if (![g isKindOfClass:[pxSVGGradient class]]) return nil;
-        gr = g.gradient;
         sp = g.startPoint;
         ep = g.endPoint;
         cls = (id)g.colors;
         locs = (id)g.locations;
     } else {
         cls = [NSMutableArray new], locs = [NSMutableArray new];
-        CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
         for (pxXMLNode *s in node.childNodes) {
             if (![s.tagName isEqualToString:@"stop"]) {
                 NSLog(@"Unknown gradient node: %@",s);
@@ -232,21 +228,13 @@
                 [locs addObject:@([[ma objectForKey:@"offset"] doubleValue])];
             }
         }
-        CGFloat *locs_a = CFAllocatorAllocate(CFAllocatorGetDefault(), (sizeof(CGFloat)*locs.count), 0);
-        for (NSUInteger i=0; i<locs.count; i++) {
-            locs_a[i] = [locs[i] doubleValue];
-        }
-        gr = CGGradientCreateWithColors(cs, (__bridge CFArrayRef)cls, locs_a);
-        CFAllocatorDeallocate(CFAllocatorGetDefault(), locs_a);
-        CGColorSpaceRelease(cs);
     }
     if ([node.attributes objectForKey:@"x1"]) sp.x = [[node.attributes objectForKey:@"x1"] doubleValue];
     if ([node.attributes objectForKey:@"y1"]) sp.y = [[node.attributes objectForKey:@"y1"] doubleValue];
     if ([node.attributes objectForKey:@"x2"]) ep.x = [[node.attributes objectForKey:@"x2"] doubleValue];
     if ([node.attributes objectForKey:@"y2"]) ep.y = [[node.attributes objectForKey:@"y2"] doubleValue];
-    if (gr) {
+    if (cls.count) {
         pxSVGGradient *g = [pxSVGGradient new];
-        g.gradient = gr;
         g.colors = cls;
         g.locations = locs;
         g.startPoint = sp;

@@ -60,6 +60,7 @@
             if ([op isCancelled]) return;
             if (!weakself) return;
             weakself.loadOperation = nil;
+            op = nil;
             NSError *error = err;
             if (!error && [resp isKindOfClass:[NSHTTPURLResponse class]] && (((NSHTTPURLResponse*)resp).statusCode != 200))
                 error = [NSError errorWithDomain:@"pxSVGLoader.httpStatus" code:((NSHTTPURLResponse*)resp).statusCode userInfo:nil];
@@ -91,6 +92,7 @@
             if ([op isCancelled]) return;
             if (!weakself) return;
             weakself.parseOperation = nil;
+            op = nil;
             if (!img) return [weakself loadError:[NSError errorWithDomain:@"pxSVGParser.parseError" code:0 userInfo:nil]];
             [weakself loadImage:img];
         }];
@@ -112,6 +114,7 @@
             if (!weakself) return;
             [weakself addSublayer:img];
             weakself.parseOperation = nil;
+            op = nil;
             weakself.contentRect = image.bounds;
             if ([weakself.svgDelegate respondsToSelector:@selector(svgLayerDidLoadImage:)])
                 [weakself.svgDelegate svgLayerDidLoadImage:weakself];
