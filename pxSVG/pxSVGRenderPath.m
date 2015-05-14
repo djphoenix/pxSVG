@@ -54,11 +54,6 @@
     return self;
 }
 
-- (void)dealloc
-{
-    self.patternLayer = nil;
-}
-
 - (void)setPatternLayer:(CALayer *)patternLayer
 {
     _patternLayer = patternLayer;
