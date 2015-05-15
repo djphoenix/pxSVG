@@ -9,8 +9,7 @@
 #import <Foundation/Foundation.h>
 
 @interface pxXMLNode : NSObject
-+ (NSArray*) parseTree:(NSScanner*)scanner;
-+ (instancetype) parseNode:(NSString*)string childScanner:(NSScanner*)childScanner;
++ (NSArray*) parseTree:(NSData*)data;
 @property (readonly) NSString *tagName;
 @property (readonly) NSDictionary *attributes;
 @property (readonly) NSArray *childNodes;

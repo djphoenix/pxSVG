@@ -15,14 +15,14 @@
 @end
 
 @implementation pxSVGImage
-+ (instancetype)svgImageWithXML:(NSString *)xml
++ (instancetype)svgImageWithXML:(NSData *)xml
 {
     return [[self alloc] initWithXML:xml];
 }
-- (instancetype)initWithXML:(NSString *)xml
+- (instancetype)initWithXML:(NSData *)xml
 {
     pxXMLNode *xmlTree =
-    [[pxXMLNode parseTree:[[NSScanner alloc] initWithString:xml]]
+    [[pxXMLNode parseTree:xml]
      filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"tagName=%@",@"svg"]]
     .firstObject;
     if (!xmlTree) return nil;

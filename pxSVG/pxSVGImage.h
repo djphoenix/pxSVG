@@ -9,8 +9,8 @@
 #import <UIKit/UIKit.h>
 
 @interface pxSVGImage : NSObject
-+ (instancetype) svgImageWithXML:(NSString*)data;
-- (instancetype) initWithXML:(NSString*)data;
++ (instancetype) svgImageWithXML:(NSData*)data;
+- (instancetype) initWithXML:(NSData*)data;
 @property (nonatomic,readonly) CGRect bounds;
 - (CALayer*)makeLayer;
 @end

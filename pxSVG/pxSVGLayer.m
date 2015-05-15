@@ -72,21 +72,20 @@
             err = [NSError errorWithDomain:@"pxSVGLoader.httpStatus" code:((NSHTTPURLResponse*)resp).statusCode userInfo:nil];
         if (!err && !data)
             err = [NSError errorWithDomain:@"pxSVGLoader.emptyData" code:0 userInfo:nil];
-        NSString *str = data?[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]:nil;
-        data = nil, resp = nil;
+        resp = nil;
         if ([op isCancelled]) {
-            op = nil, str = nil, err = nil;
+            op = nil, data = nil, err = nil;
             return;
         }
         op = nil;
         if (err) {
-            str = nil;
+            data = nil;
             [weakself performSelectorOnMainThread:@selector(loadError:) withObject:err waitUntilDone:NO modes:@[NSRunLoopCommonModes]];
             err = nil;
             return;
         }
-        [weakself performSelectorOnMainThread:@selector(loadString:) withObject:str waitUntilDone:NO modes:@[NSRunLoopCommonModes]];
-        str = nil, err = nil;
+        [weakself performSelectorOnMainThread:@selector(loadData:) withObject:data waitUntilDone:NO modes:@[NSRunLoopCommonModes]];
+        data = nil, err = nil;
     } }];
     op.name = url.absoluteString;
     op.threadPriority = 0.1f;
@@ -95,15 +94,10 @@
 
 - (void)loadData:(NSData *)data
 {
-    [self loadString:[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]];
-}
-
-- (void)loadString:(NSString *)string
-{
     [self clean];
     __weak pxSVGLayer *weakself = self;
     __block NSBlockOperation *op = [NSBlockOperation blockOperationWithBlock:^{ @autoreleasepool {
-        pxSVGImage *img = [pxSVGImage svgImageWithXML:string];
+        pxSVGImage *img = [pxSVGImage svgImageWithXML:data];
         if ([op isCancelled]) {
             op = nil, img = nil;
             return;
@@ -119,6 +113,11 @@
     } }];
     op.threadPriority = 0.1f;
     [[self.class parseQueue] addOperation:self.parseOperation=op];
+}
+
+- (void)loadString:(NSString *)string
+{
+    [self loadData:[string dataUsingEncoding:NSUTF8StringEncoding]];
 }
 
 - (void)loadImage:(pxSVGImage*)image
