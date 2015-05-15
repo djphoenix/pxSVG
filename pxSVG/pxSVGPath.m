@@ -8,19 +8,112 @@
 
 #import "pxSVGPath.h"
 
-@interface NSScanner (CGPoint)
+@interface pxSVGScanner: NSObject
++ (instancetype) scannerWithString:(NSString*)string;
+- (instancetype) initWithString:(NSString*)string;
+- (unichar) scanCharacter:(unichar)character;
+- (CGFloat) scanFloat;
+- (unichar) scanCommand;
+- (BOOL) scanFlag;
 - (CGPoint) scanCGPoint;
 - (CGPoint) scanCGPointWithOffset:(CGPoint)off;
+@property (readonly) BOOL atEnd;
+@property NSUInteger scanLocation;
+
+@property NSUInteger len;
+@property const char* bytes;
 @end
 
-@implementation NSScanner (CGPoint)
+@implementation pxSVGScanner
+
++ (instancetype)scannerWithString:(NSString *)string
+{
+    return [[self alloc] initWithString:string];
+}
+- (instancetype)initWithString:(NSString *)string
+{
+    self = [self init];
+    self.len = string.length;
+    self.bytes = [string cStringUsingEncoding:NSUTF8StringEncoding];
+    self.scanLocation = 0;
+    return self;
+}
+- (BOOL)atEnd
+{
+    return self.scanLocation >= self.len;
+}
+- (void)skip
+{
+    static NSCharacterSet *skip; if (!skip) skip = [NSCharacterSet whitespaceAndNewlineCharacterSet];
+    while (self.scanLocation < self.len) {
+        unichar c = self.bytes[self.scanLocation];
+        if (!(
+              (c == '\n') ||
+              (c == '\r') ||
+              (c == '\t') ||
+              (c == ' ')
+            )) break;
+        self.scanLocation++;
+    }
+}
+- (unichar)scanCharacter:(unichar)character
+{
+    if (self.atEnd || (self.bytes[self.scanLocation] != character)) return 0;
+    self.scanLocation++;
+    return character;
+}
+- (unichar)scanCommand
+{
+    [self skip];
+    if (self.atEnd) return 0;
+    unichar c = self.bytes[self.scanLocation], l = c;
+    if ((l >= 'A') && (l <= 'Z')) l -= 'A'-'a';
+    if (!((l == 'm') ||
+          (l == 'c') ||
+          (l == 's') ||
+          (l == 'l') ||
+          (l == 'h') ||
+          (l == 'v') ||
+          (l == 'a') ||
+          (l == 'z')
+          )) return 0;
+    self.scanLocation++;
+    [self skip];
+    return c;
+}
+- (CGFloat)scanFloat
+{
+    [self skip];
+    NSRange r;
+    r.location = self.scanLocation;
+    [self scanCharacter:'-'];
+    while (!self.atEnd && ((self.bytes[self.scanLocation] >= '0') && (self.bytes[self.scanLocation] <= '9'))) self.scanLocation++;
+    if ([self scanCharacter:'.'] == '.') {
+        while (!self.atEnd && ((self.bytes[self.scanLocation] >= '0') && (self.bytes[self.scanLocation] <= '9'))) self.scanLocation++;
+    }
+    if ([self scanCharacter:'e'] == 'e') {
+        [self scanCharacter:'-'];
+        while (!self.atEnd && ((self.bytes[self.scanLocation] >= '0') && (self.bytes[self.scanLocation] <= '9'))) self.scanLocation++;
+    }
+    r.length = self.scanLocation-r.location;
+    [self skip];
+    char buf[r.length+1];
+    memset(buf, 0, r.length+1);
+    memcpy(buf, &self.bytes[r.location], r.length);
+    return atof(buf);
+}
+- (BOOL)scanFlag
+{
+    if (self.atEnd) return NO;
+    return self.bytes[self.scanLocation++] == '1';
+}
 - (CGPoint) scanCGPoint
 {
-    double x,y;
-    [self scanString:@"," intoString:nil];
-    [self scanDouble:&x];
-    [self scanString:@"," intoString:nil];
-    [self scanDouble:&y];
+    CGFloat x,y;
+    [self scanCharacter:','];
+    x = [self scanFloat];
+    [self scanCharacter:','];
+    y = [self scanFloat];
     return (CGPoint){x,y};
 }
 - (CGPoint)scanCGPointWithOffset:(CGPoint)off
@@ -34,25 +127,22 @@
 
 - (UIBezierPath*)bezierPathWithString:(NSString*)string
 {
-    static NSCharacterSet *cmds; if (!cmds) cmds = [NSCharacterSet characterSetWithCharactersInString:@"MmCcSsLlHhVvAaZz"];
-    NSScanner *scanner = [NSScanner scannerWithString:string];
-    [scanner setCharactersToBeSkipped:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    NSString *cmd; unichar lastCmd = 0;
+    pxSVGScanner *scanner = [pxSVGScanner scannerWithString:string];
+    unichar cmd, lastCmd = 0;
     UIBezierPath *bp = [UIBezierPath new];
     CGPoint p = CGPointZero, c1, c2;
     double d, r, s;
     while (!scanner.atEnd) {
-        if (cmd.length>1) cmd=[cmd substringFromIndex:1];
-        else if (![scanner scanCharactersFromSet:cmds intoString:&cmd]) {
-            if ([cmds characterIsMember:lastCmd]) {
-                cmd = [NSString stringWithCharacters:&lastCmd length:1];
+        cmd = [scanner scanCommand];
+        if (cmd == 0) {
+            if (lastCmd) {
+                cmd = lastCmd;
             } else {
                 NSLog(@"Unknown character: %@",[string substringWithRange:(NSRange){scanner.scanLocation,1}]);
                 break;
             }
-        }
-        lastCmd = [cmd characterAtIndex:0];
-        switch (lastCmd) {
+        } else lastCmd = cmd;
+        switch (cmd) {
             case 'M':
                 [bp moveToPoint:p = [scanner scanCGPoint]];
                 break;
@@ -83,12 +173,12 @@
                 break;
             case 'A':
                 c2 = [scanner scanCGPoint]; // r
-                [scanner scanString:@"," intoString:nil];
-                [scanner scanDouble:&d]; d *= M_PI; d /= 180.f; // a
-                [scanner scanString:@"," intoString:nil];
-                [scanner scanDouble:nil];
-                [scanner scanString:@"," intoString:nil];
-                [scanner scanDouble:nil];
+                [scanner scanCharacter:','];
+                d = [scanner scanFloat]; d *= M_PI; d /= 180.f; // a
+                [scanner scanCharacter:','];
+                [scanner scanFlag];
+                [scanner scanCharacter:','];
+                [scanner scanFlag];
                 c1 = p;
                 p = [scanner scanCGPoint];
                 c1 = (CGPoint){(c1.x+p.x)/2.f,(c1.y+p.y)/2.f};
@@ -98,12 +188,12 @@
                 break;
             case 'a':
                 c2 = [scanner scanCGPointWithOffset:p]; // r
-                [scanner scanString:@"," intoString:nil];
-                [scanner scanDouble:&d]; d *= M_PI; d /= 180.f; // a
-                [scanner scanString:@"," intoString:nil];
-                [scanner scanDouble:nil];
-                [scanner scanString:@"," intoString:nil];
-                [scanner scanDouble:nil];
+                [scanner scanCharacter:','];
+                d = [scanner scanFloat]; d *= M_PI; d /= 180.f; // a
+                [scanner scanCharacter:','];
+                [scanner scanFlag];
+                [scanner scanCharacter:','];
+                [scanner scanFlag];
                 c1 = p;
                 p = [scanner scanCGPointWithOffset:p];
                 c1 = (CGPoint){(c1.x+p.x)/2.f,(c1.y+p.y)/2.f};
@@ -112,19 +202,19 @@
                 [bp addArcWithCenter:c1 radius:r startAngle:s endAngle:s+d clockwise:d>0];
                 break;
             case 'V':
-                [scanner scanDouble:&d]; p.y = d;
+                p.y = [scanner scanFloat];
                 [bp addLineToPoint:p];
                 break;
             case 'v':
-                [scanner scanDouble:&d]; p.y+= d;
+                p.y+= [scanner scanFloat];
                 [bp addLineToPoint:p];
                 break;
             case 'H':
-                [scanner scanDouble:&d]; p.x = d;
+                p.x = [scanner scanFloat];
                 [bp addLineToPoint:p];
                 break;
             case 'h':
-                [scanner scanDouble:&d]; p.x+= d;
+                p.x+= [scanner scanFloat];
                 [bp addLineToPoint:p];
                 break;
             case 'L':
@@ -139,7 +229,7 @@
                 break;
                 
             default:
-                NSLog(@"Unknown command: %@",cmd);
+                NSLog(@"Unknown command: %c",cmd);
                 return nil;
         }
     }
@@ -148,9 +238,7 @@
 
 - (UIBezierPath*)bezierPolygonWithString:(NSString*)string
 {
-    static NSCharacterSet *cmds; if (!cmds) cmds = [NSCharacterSet characterSetWithCharactersInString:@"MmCcSsLlHhVvAaZz"];
-    NSScanner *scanner = [NSScanner scannerWithString:string];
-    [scanner setCharactersToBeSkipped:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    pxSVGScanner *scanner = [pxSVGScanner scannerWithString:string];
     UIBezierPath *bp = [UIBezierPath new];
     [bp moveToPoint:[scanner scanCGPoint]];
     while (!scanner.atEnd) {
