@@ -43,7 +43,7 @@
 
 + (instancetype)layer
 {
-    return [self new];
+    return [super layer];
 }
 
 - (instancetype)init
@@ -421,35 +421,35 @@
 {
     CALayer *l;
     if ([node respondsToSelector:@selector(d)]) {
-        CAShapeLayer *sl = [CAShapeLayer new];
+        CAShapeLayer *sl = [CAShapeLayer layer];
         UIBezierPath *p = [(id)node d];
         sl.path = p.CGPath;
         if (node.fillDef) {
             sl.fillColor = [UIColor clearColor].CGColor;
             id def = [self findDef:node.fillDef];
             if ([def isKindOfClass:[pxSVGGradient class]]) {
-                CAGradientLayer *gl = [CAGradientLayer new];
+                CAGradientLayer *gl = [CAGradientLayer layer];
                 gl.frame = p.bounds;
                 gl.startPoint = (CGPoint){([def startPoint].x-gl.frame.origin.x)/gl.frame.size.width,([def startPoint].y-gl.frame.origin.y)/gl.frame.size.height};
                 gl.endPoint = (CGPoint){([def endPoint].x-gl.frame.origin.x)/gl.frame.size.width,([def endPoint].y-gl.frame.origin.y)/gl.frame.size.height};
                 gl.locations = [def locations];
                 gl.colors = [def colors];
                 gl.opacity = isnan(node.fillOpacity)?1:node.fillOpacity;
-                CAShapeLayer *ml = [CAShapeLayer new];
-                ml.frame = (CGRect){{-p.bounds.origin.x,-p.bounds.origin.y},{p.bounds.size.width+p.bounds.origin.x,p.bounds.size.height+p.bounds.origin.y}};
+                CAShapeLayer *ml = [CAShapeLayer layer];
+                ml.frame = (CGRect){{-p.bounds.origin.x,-p.bounds.origin.y},{ceil(p.bounds.size.width+p.bounds.origin.x),ceil(p.bounds.size.height+p.bounds.origin.y)}};
                 ml.path = sl.path;
                 gl.mask = ml;
                 [sl addSublayer:gl];
             }
             if ([def isKindOfClass:[pxSVGPattern class]]) {
-                pxSVGPatternLayer *tl = [pxSVGPatternLayer new];
+                pxSVGPatternLayer *tl = [pxSVGPatternLayer layer];
                 CALayer *pl = [self makeLayerWithNode:def rootBounds:[def patternBounds]];
                 tl.patternLayer = pl;
                 tl.patternTransform = CATransform3DTranslate([def patternTransform],p.bounds.origin.x,p.bounds.origin.y,0);
                 tl.frame = p.bounds;
                 tl.opacity = isnan(node.fillOpacity)?1:node.fillOpacity;
-                CAShapeLayer *ml = [CAShapeLayer new];
-                ml.frame = (CGRect){{-p.bounds.origin.x,-p.bounds.origin.y},{p.bounds.size.width+p.bounds.origin.x,p.bounds.size.height+p.bounds.origin.y}};
+                CAShapeLayer *ml = [CAShapeLayer layer];
+                ml.frame = (CGRect){{-p.bounds.origin.x,-p.bounds.origin.y},{ceil(p.bounds.size.width+p.bounds.origin.x),ceil(p.bounds.size.height+p.bounds.origin.y)}};
                 ml.path = sl.path;
                 tl.mask = ml;
                 [sl addSublayer:tl];
@@ -460,14 +460,15 @@
         sl.lineWidth = isnan(node.strokeWidth)?0:node.strokeWidth;
         l = sl;
     } else {
-        l = [CALayer new];
+        l = [CALayer layer];
     }
     if (node.clipDef) {
         id def = [self findDef:node.clipDef];
         if ([def isKindOfClass:[pxSVGObject class]]) {
-            CAShapeLayer *ml = [CAShapeLayer new];
-            ml.frame = (CGRect){CGPointZero,bounds.size};
-            ml.path = [self mergePath:def].CGPath;
+            UIBezierPath *bp = [self mergePath:def];
+            CAShapeLayer *ml = [CAShapeLayer layer];
+            ml.frame = (CGRect){CGPointZero,{ceil(bp.bounds.size.width),ceil(bp.bounds.size.height)}};
+            ml.path = bp.CGPath;
             l.mask = ml;
         }
     }
