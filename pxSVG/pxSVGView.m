@@ -10,19 +10,21 @@
 #import "pxSVGLayer.h"
 
 @interface pxSVGView () <pxSVGLayerDelegate>
-@property (weak) pxSVGLayer *svgLayer;
 @end
 
 @implementation pxSVGView
+
++ (Class)layerClass
+{
+    return [pxSVGLayer class];
+}
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
     self = [super initWithFrame:frame];
     self.contentMode = UIViewContentModeScaleAspectFit;
-    pxSVGLayer *sl = [pxSVGLayer new];
-    [self.layer addSublayer:sl];
-    self.svgLayer=sl;
-    self.svgLayer.svgDelegate = self;
+    pxSVGLayer *sl = (pxSVGLayer*)self.layer;
+    sl.svgDelegate = self;
     return self;
 }
 
@@ -30,10 +32,10 @@
 {
     [super layoutSublayersOfLayer:layer];
     if (layer != self.layer) return;
-    self.svgLayer.transform = CATransform3DIdentity;
-    [self.svgLayer setFrame:self.layer.bounds];
+    self.layer.transform = CATransform3DIdentity;
+    [self.layer setFrame:self.bounds];
     CATransform3D tr = CATransform3DIdentity;
-    CGRect c = self.svgLayer.contentRect;
+    CGRect c = ((pxSVGLayer*)self.layer).contentRect;
     CGFloat
     scx = c.size.width/self.bounds.size.width,
     scy = c.size.height/self.bounds.size.height,
@@ -47,7 +49,7 @@
             break;
         default: break;
     }
-    [self.svgLayer setTransform:tr];
+    [(pxSVGLayer*)self.layer setTransform:tr];
 }
 
 - (void)svgLayerDidLoadImage:(pxSVGLayer *)svgLayer
@@ -66,17 +68,17 @@
 
 - (void)loadData:(NSData *)data
 {
-    [self.svgLayer loadData:data];
+    [(pxSVGLayer*)self.layer loadData:data];
 }
 
 - (void)loadString:(NSString *)string
 {
-    [self.svgLayer loadString:string];
+    [(pxSVGLayer*)self.layer loadString:string];
 }
 
 - (void)loadURL:(NSURL *)url
 {
-    [self.svgLayer loadURL:url];
+    [(pxSVGLayer*)self.layer loadURL:url];
 }
 
 @end
