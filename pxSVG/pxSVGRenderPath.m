@@ -37,6 +37,7 @@
 @interface pxSVGPatternLayer : CALayer
 @property (nonatomic) CALayer *patternLayer;
 @property (nonatomic) CATransform3D patternTransform;
+@property UIBezierPath *clipPath;
 @end
 
 @implementation pxSVGPatternLayer
@@ -77,6 +78,12 @@
 
 - (void)drawInContext:(CGContextRef)ctx
 {
+    if (self.clipPath) {
+        UIBezierPath *cp = [self.clipPath copy];
+        [cp applyTransform:CGAffineTransformMakeTranslation(-cp.bounds.origin.x, -cp.bounds.origin.y)];
+        CGContextAddPath(ctx, cp.CGPath);
+        CGContextClip(ctx);
+    }
     CGRect r = CGContextGetClipBoundingBox(ctx);
     CGAffineTransform tr = CATransform3DGetAffineTransform(self.patternTransform);
     CGSize sz = self.patternLayer.frame.size;
@@ -97,6 +104,59 @@
         }
         off.y += sz.height;
     }
+}
+
+@end
+
+@interface pxSVGGradientLayer : CALayer
+@property UIBezierPath *clipPath;
+@property NSArray *colors;
+@property NSArray *locations;
+@property CGPoint startPoint, endPoint;
+@end
+
+@implementation pxSVGGradientLayer
+
++ (instancetype)layer
+{
+    return [super layer];
+}
+
+- (instancetype)init
+{
+    self = [super init];
+    [self setNeedsDisplayOnBoundsChange:YES];
+    [self setNeedsDisplay];
+    return self;
+}
+
+- (void)setNeedsDisplay
+{
+    if ([NSThread isMainThread]) return [super setNeedsDisplay];
+    __weak id weakself = self;
+    [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+        if (weakself) [weakself setNeedsDisplay];
+    }];
+}
+
+- (void)drawInContext:(CGContextRef)ctx
+{
+    CGContextSaveGState(ctx);
+    CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+    CGFloat locs[self.locations.count];
+    for (NSUInteger i=0; i<self.locations.count; i++)
+        locs[i] = [self.locations[i] doubleValue];
+    CGGradientRef gr = CGGradientCreateWithColors(cs, (__bridge CFArrayRef)self.colors, locs);
+    if (self.clipPath) {
+        UIBezierPath *cp = [self.clipPath copy];
+        [cp applyTransform:CGAffineTransformMakeTranslation(-cp.bounds.origin.x, -cp.bounds.origin.y)];
+        CGContextAddPath(ctx, cp.CGPath);
+        CGContextClip(ctx);
+    }
+    CGContextDrawLinearGradient(ctx, gr, self.startPoint, self.endPoint, 0);
+    CGGradientRelease(gr);
+    CGColorSpaceRelease(cs);
+    CGContextRestoreGState(ctx);
 }
 
 @end
@@ -417,6 +477,17 @@
     }
     return bp;
 }
+- (void)clipLayer:(CALayer*)layer byPath:(UIBezierPath*)path
+{
+    if ([layer isKindOfClass:[CAShapeLayer class]]) {
+        CAShapeLayer *ml = [CAShapeLayer layer];
+        ml.path = path.CGPath;
+        layer.mask = ml;
+    }
+    for (CALayer *l in [layer.sublayers copy]) {
+        [self clipLayer:l byPath:path];
+    }
+}
 - (CALayer *)makeLayerWithNode:(pxSVGObject*)node rootBounds:(CGRect)bounds;
 {
     CALayer *l;
@@ -428,17 +499,14 @@
             sl.fillColor = [UIColor clearColor].CGColor;
             id def = [self findDef:node.fillDef];
             if ([def isKindOfClass:[pxSVGGradient class]]) {
-                CAGradientLayer *gl = [CAGradientLayer layer];
+                pxSVGGradientLayer *gl = [pxSVGGradientLayer layer];
                 gl.frame = p.bounds;
                 gl.startPoint = (CGPoint){([def startPoint].x-gl.frame.origin.x)/gl.frame.size.width,([def startPoint].y-gl.frame.origin.y)/gl.frame.size.height};
                 gl.endPoint = (CGPoint){([def endPoint].x-gl.frame.origin.x)/gl.frame.size.width,([def endPoint].y-gl.frame.origin.y)/gl.frame.size.height};
                 gl.locations = [def locations];
                 gl.colors = [def colors];
                 gl.opacity = isnan(node.fillOpacity)?1:node.fillOpacity;
-                CAShapeLayer *ml = [CAShapeLayer layer];
-                ml.frame = (CGRect){{-p.bounds.origin.x,-p.bounds.origin.y},{ceil(p.bounds.size.width+p.bounds.origin.x),ceil(p.bounds.size.height+p.bounds.origin.y)}};
-                ml.path = sl.path;
-                gl.mask = ml;
+                gl.clipPath = p;
                 [sl addSublayer:gl];
             }
             if ([def isKindOfClass:[pxSVGPattern class]]) {
@@ -448,10 +516,7 @@
                 tl.patternTransform = CATransform3DTranslate([def patternTransform],p.bounds.origin.x,p.bounds.origin.y,0);
                 tl.frame = p.bounds;
                 tl.opacity = isnan(node.fillOpacity)?1:node.fillOpacity;
-                CAShapeLayer *ml = [CAShapeLayer layer];
-                ml.frame = (CGRect){{-p.bounds.origin.x,-p.bounds.origin.y},{ceil(p.bounds.size.width+p.bounds.origin.x),ceil(p.bounds.size.height+p.bounds.origin.y)}};
-                ml.path = sl.path;
-                tl.mask = ml;
+                tl.clipPath = p;
                 [sl addSublayer:tl];
             }
         } else
@@ -462,29 +527,30 @@
     } else {
         l = [CALayer layer];
     }
+    l.frame = (CGRect){{-bounds.origin.x,-bounds.origin.y},bounds.size};
+    l.opacity = node.opacity;
+    if ([node respondsToSelector:@selector(subnodes)]) {
+        for (pxSVGObject *n in [(id)node subnodes]) {
+            CALayer *sl = [self makeLayerWithNode:n rootBounds:l.bounds];
+            if ([l respondsToSelector:@selector(clipPath)] && [sl respondsToSelector:@selector(clipPath)])
+                [(id)sl setClipPath:[(id)l clipPath]];
+            if (sl) [l addSublayer:sl];
+        }
+    }
     if (node.clipDef) {
         id def = [self findDef:node.clipDef];
         if ([def isKindOfClass:[pxSVGObject class]]) {
-            UIBezierPath *bp = [self mergePath:def];
-            CAShapeLayer *ml = [CAShapeLayer layer];
-            ml.frame = (CGRect){CGPointZero,{ceil(bp.bounds.size.width),ceil(bp.bounds.size.height)}};
-            ml.path = bp.CGPath;
-            l.mask = ml;
+            if ([l respondsToSelector:@selector(clipPath)])
+                [(id)l setClipPath:[self mergePath:def]];
+            else
+                [self clipLayer:l byPath:[self mergePath:def]];
         }
     }
-    l.frame = (CGRect){{-bounds.origin.x,-bounds.origin.y},bounds.size};
     CATransform3D tr = node.transform;
     tr = CATransform3DConcat(CATransform3DMakeTranslation( bounds.size.width/2,  bounds.size.height/2, 0), tr);
     tr = CATransform3DConcat(tr, CATransform3DMakeTranslation(-bounds.size.width/2, -bounds.size.height/2, 0));
     l.transform = tr;
     bounds.origin = CGPointZero;
-    l.opacity = node.opacity;
-    if ([node respondsToSelector:@selector(subnodes)]) {
-        for (pxSVGObject *n in [(id)node subnodes]) {
-            CALayer *sl = [self makeLayerWithNode:n rootBounds:bounds];
-            if (sl) [l addSublayer:sl];
-        }
-    }
     return l;
 }
 - (CALayer *)makeLayer
